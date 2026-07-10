@@ -2,6 +2,14 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.2.1] - 2026-07-11
+
+### Documentation
+
+- Moved the credential boundary next to installation: installing `gzh-format` never requires an API key.
+- Added a scenario matrix distinguishing local formatting, manual copy, and separately installed automatic draft sync.
+- Documented the safe first-use handoff: local credential file, redacted doctor, dry-run, explicit confirmation, and secret rotation after leakage.
+
 ## [0.2.0] - 2026-07-11
 
 ### Breaking changes

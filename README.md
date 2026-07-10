@@ -55,6 +55,9 @@ Markdown
 npx skills add https://github.com/wukongai/gzh-format
 ```
 
+> [!IMPORTANT]
+> 安装 `gzh-format` 不会要求配置 API Key。排版、校验、本地预览和手工复制都不需要微信公众号 AppID/AppSecret。只有以后首次使用独立的“自动创建公众号草稿”工具时，那个工具才会按需引导配置。
+
 这条命令会读取仓库中的 `SKILL.md`，并让你选择安装到支持的 Agent 环境。`npx` 只用于安装，排版运行时不依赖 Node.js。
 
 以下手动安装命令以 GitHub 主仓库为例；如果访问 GitHub 不便，可把仓库地址替换为 `https://gitee.com/teacherai/gzh-format.git`。
@@ -221,16 +224,45 @@ gzh-format/
 
 ## 公众号凭证与自动草稿
 
-如果你只是在本地排版，然后点击预览页的“复制到公众号”，不需要配置任何公众号凭证。
+先看场景：
 
-自动创建公众号草稿属于权限更高的独立流程，应交给单独安装的 `wechat-draft-sync` 或同类发布工具。安全的协助方式是：
+| 使用方式 | 是否需要 AppID/AppSecret | 谁负责 |
+|---|---:|---|
+| 本地排版、校验、生成预览 | 不需要 | `gzh-format` |
+| 点击“复制到公众号”后手工粘贴 | 不需要 | 用户浏览器 |
+| 自动上传图片并创建公众号草稿 | 需要 | 单独安装的 `wechat-draft-sync` 或同类发布工具 |
 
-1. 发布工具先运行本地 doctor，只返回“是否已配置”这类布尔状态，不显示密钥。
-2. AppID/AppSecret 只保存在该发布工具约定的本地凭证目录或系统凭证存储中，不写进本仓库、文章、prompt 或聊天记录。
-3. dry-run 先检查标题、摘要、封面和正文图片计划；用户确认后才联网创建草稿。
-4. AppSecret 泄露时立即去微信公众平台重置，再更新本地配置。
+因此，安装本仓库后可以立即开始排版，不会弹出凭证配置，也不会因为没有 API Key 而阻塞。
 
-`gzh-format` 不读取发布工具的凭证目录。用户要求自动草稿时，它只把已经校验的 HTML 交给独立发布工具。
+当用户第一次明确要求“自动同步到公众号草稿”时，安全的引导流程应该是：
+
+1. 独立发布工具先运行本地 doctor，只返回 `has_app_id / has_app_secret` 等布尔状态，不显示密钥。
+2. 如果缺少配置，工具提示用户在自己的电脑上填写本地凭证文件，而不是把密钥粘贴给 Agent。
+3. 默认配置文件位于 `~/.config/wechat-draft-sync/accounts.yaml`，它不在本仓库中。
+4. 示例只能使用占位符：
+
+```yaml
+default_account: main
+accounts:
+  main:
+    app_id: "<公众号 AppID>"
+    app_secret: "<公众号 AppSecret>"
+    author: "<作者名>"
+```
+
+5. 配置完成后限制文件权限：
+
+```bash
+chmod 600 ~/.config/wechat-draft-sync/accounts.yaml
+```
+
+`600` 表示只有当前用户可以读取和修改这个文件。
+
+6. 再运行 doctor；通过后先做不联网的 preview/dry-run，检查标题、摘要、封面和正文图片计划。
+7. 只有用户明确确认后，发布工具才联网获取 access token、上传图片并创建草稿。
+8. AppSecret 如果进入聊天、文章、日志或 Git 历史，应立即在微信公众平台重置，再更新本地配置。
+
+`gzh-format` 不包含自动草稿工具，也不读取它的凭证目录。用户要求自动草稿时，本 Skill 只把已经校验的 HTML 交给单独安装的发布工具。
 
 ## 开发与验证
 
