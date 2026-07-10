@@ -5,6 +5,9 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB.svg)](https://www.python.org/)
 
+- GitHub 主仓库：[wukongai/gzh-format](https://github.com/wukongai/gzh-format)
+- Gitee 国内镜像：[teacherai/gzh-format](https://gitee.com/teacherai/gzh-format)
+
 `gzh-format` 是一个给 Codex、Claude Code 等 AI Agent 使用的公众号排版 Skill。你提供一篇 Markdown，它负责读取主题规则、生成公众号兼容 HTML、运行合规检查，并生成带复制按钮的本地预览页。
 
 它只负责排版、预览和校验：不代写文章，不读取公众号凭证，也不会自动发布或群发。
@@ -54,6 +57,8 @@ npx skills add https://github.com/wukongai/gzh-format
 ```
 
 这条命令会读取仓库中的 `SKILL.md`，并让你选择安装到支持的 Agent 环境。`npx` 只用于安装，排版运行时不依赖 Node.js。
+
+以下手动安装命令以 GitHub 主仓库为例；如果访问 GitHub 不便，可把仓库地址替换为 `https://gitee.com/teacherai/gzh-format.git`。
 
 ### 方式二：手动安装到 Codex
 
