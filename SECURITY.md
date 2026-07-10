@@ -4,12 +4,15 @@
 
 `gzh-format` 的默认能力是本地 Markdown 解析、HTML 生成、校验和预览。它不需要网络，也不应读取：
 
-- 微信 AppSecret 或 access token
+- 微信 AppID、AppSecret 或 access token
+- 环境变量或 `~/.config/wechat-draft-sync/` 等其它工具的凭证配置
 - cookie、浏览器登录态或 Keychain
 - `.env`、私钥或云服务凭证
 - 用户未明确指定的文章和目录
 
 它也不应自动上传图片、创建公众号草稿、发布或群发。
+
+只使用排版、预览和手工复制时,用户无需配置任何公众号凭证。自动草稿属于独立 `wechat-draft-sync` 的能力;该工具应在本地检查和读取自己的 BYOK 配置,不得把真实密钥回传给 Agent 或写入本仓库。
 
 ## Reporting a vulnerability
 
@@ -24,4 +27,3 @@
 - 可选的修复建议
 
 普通排版错误、主题视觉建议和兼容性问题可以直接提交公开 Issue。
-

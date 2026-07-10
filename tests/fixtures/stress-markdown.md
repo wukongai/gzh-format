@@ -15,7 +15,7 @@ title: gzh-format stress fixture
 普通段落包含 **加粗**、==浅底高亮==、<u>显式下划线</u>、++双加号下划线++、~~旧说法~~，以及 `inline_code`，还包含一个[可点击链接](https://aixiaoai.cloud/cases/demo)。
 
 ```bash
-pudding sync demo.md --force
+python3 scripts/render_markdown.py demo.md demo.html --theme minimal
 ```
 
 ---

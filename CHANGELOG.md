@@ -2,6 +2,20 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.2.0] - 2026-07-11
+
+### Breaking changes
+
+- Removed the Pudding/H5 render target, output contract, renderer branch, reference, helper script, and regression assertions.
+- Removed `--target`; the CLI now has one output contract: WeChat Official Account compatible HTML.
+- Calls that still pass `--target pudding` fail with an explicit argparse error and must migrate to a platform-specific tool.
+
+### Security and boundaries
+
+- Clarified that formatting, validation, local preview, and manual copy require no AppID, AppSecret, or access token.
+- `gzh-format` does not read environment variables, credential files, Keychain, cookies, or another tool's configuration.
+- Automatic draft creation remains delegated to a separately installed credentialed publishing tool such as `wechat-draft-sync`.
+
 ## [0.1.0] - 2026-07-10
 
 ### Added
@@ -24,4 +38,3 @@ All notable changes to the standalone `gzh-format` distribution are documented h
 - Deterministic CLI rendering currently supports only the `minimal` theme.
 - `red` and `green` remain Agent-assembled component-library themes until renderer adapters are implemented.
 - Remote images and local image paths are preserved but not uploaded.
-

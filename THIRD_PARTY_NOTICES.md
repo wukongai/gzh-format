@@ -35,7 +35,6 @@ The following parts were imported, reorganized, or modified from the upstream pr
 - Added `skill.contract.yaml` for machine-reviewable inputs, outputs, stops, delegates, and forbidden actions.
 - Made `minimal` the default theme and changed its title, quote, image, list, and spacing rules.
 - Added deterministic Markdown rendering for the `minimal` theme.
-- Added a Pudding-oriented semantic H5 preview target without making Pudding a runtime dependency.
 - Added stress fixtures and a regression runner covering inline syntax, lists, tables, quotes, code blocks, and preview generation.
 - Added standalone installation, privacy, contribution, security, and release documentation.
 
@@ -44,4 +43,3 @@ More detailed adoption notes are maintained in [references/gzh-design-adoption.m
 ## License scope
 
 The standalone `gzh-format` distribution is released under GNU AGPL-3.0-or-later. No additional restriction is added to the rights granted by that license.
-

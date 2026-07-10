@@ -18,15 +18,13 @@ gzh-format/
     format-normalize.md            # 非 Markdown 输入归一化
     theme-generator.md             # 新主题生成与登记
     architecture.md                # 本文件
-    pudding-target.md              # 布丁 H5 预览 target 的设计边界
   themes/
     _shared/common-components.md   # 跨主题共用组件
     minimal/components.md          # 默认主题:简约
     red/components.md              # 红色
     green/components.md            # 绿色高密度主题
   scripts/
-    render_markdown.py             # 默认主题确定性渲染器:--target wechat|pudding
-    build_pudding_sync_copy.py     # 遗留工具:原文 frontmatter + pudding HTML → 临时副本,不要用于后台 content
+    render_markdown.py             # 默认主题确定性公众号 HTML 渲染器
     component_lint.py              # 组件库源头关
     validate_gzh_html.py           # 产物关
     wrap_preview.py                # 预览外壳
@@ -46,7 +44,6 @@ gzh-format/
 - `LICENSE` / `THIRD_PARTY_NOTICES.md`:明确 AGPL 许可、上游作者版权和本地修改边界。
 - `skill.contract.yaml`:给 skillhub 和 agent 读取的机器契约,避免复杂 skill 靠口头上下文运行。
 - `references/theme-index.md`:主题名、标识、适用场景、组件库路径。
-- `references/pudding-target.md`:布丁 H5 预览目标的标签、样式和同步边界;布丁后台可编辑正文必须同步源 Markdown。
 - `themes/<id>/components.md`:具体设计变量、组件 HTML、文章骨架、配方、Markdown 映射。
 - `themes/_shared/common-components.md`:代码块、图片、素材占位等所有主题都可复用的基础组件。
 - `scripts/`:确定性渲染、检查、预览生成和回归验证。
@@ -59,7 +56,7 @@ gzh-format/
 - 改主题选择,只改 `theme-index.md`。
 - 改通用组件,只改 `_shared/common-components.md`。
 - 新增主题是加目录和登记索引,不是改厚主入口。
-- 新增确定性渲染能力时,给主题或目标平台加 renderer adapter,或扩展 `render_markdown.py`;不要把模板逻辑写进 `SKILL.md`。
+- 新增确定性渲染能力时,给主题加 renderer adapter,或扩展 `render_markdown.py`;不要把模板逻辑写进 `SKILL.md`。其它平台能力应拆成独立 skill,不在本入口增加 target。
 - 改主题后先跑 `component_lint.py`,生成产物后再跑 `validate_gzh_html.py`。
 - 改 renderer / contract / 回归用例后,必须跑 `scripts/regression.py` 和 `skillhub doctor-skill skills/gzh-format --profile team`。
 

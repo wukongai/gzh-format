@@ -1,4 +1,4 @@
 interface:
-  display_name: "公众号/布丁排版"
-  short_description: "把 Markdown 长文排成公众号 HTML 或布丁 H5 预览"
-  default_prompt: "Use $gzh-format to format this Markdown article for WeChat Official Account HTML or a Pudding H5 preview. For editable Pudding admin sync, use the source Markdown with pudding sync."
+  display_name: "公众号排版"
+  short_description: "把 Markdown 长文排成微信公众号兼容 HTML"
+  default_prompt: "Use $gzh-format to format this Markdown article as WeChat Official Account HTML, validate it, and generate a local copy preview. Stop before draft creation or publishing."

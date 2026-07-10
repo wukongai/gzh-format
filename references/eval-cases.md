@@ -36,7 +36,7 @@
 - [ ] 目录/导航组件位置符合主题骨架（绿色：toc-scroll 紧跟封面之下，在引言和前言之前）
 - [ ] 正文引号生成时即为全角弯引号，无需事后替换
 - [ ] 代码块走代码块组件，不塞进段落
-- [ ] 代码块不会横向撑破:公众号 target 每行代码带 `overflow-wrap:anywhere;word-break:break-word`,布丁 target 的 `<pre><code>` 带 `white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word`
+- [ ] 代码块不会横向撑破:每行代码带 `overflow-wrap:anywhere;word-break:break-word`
 - [ ] 图片用图片组件、GIF 加动图角标
 - [ ] 正文半角标点被改成中文全角（代码块内不动）
 - [ ] 开头引言卡署名按文章作者/主题定，不固定"甲木"
@@ -48,7 +48,7 @@
 - [ ] 骨架按所选主题库的"完整文章模板骨架"装配，不套用其它主题骨架
 - [ ] 生成后跑 scripts/validate_gzh_html.py，ERROR 与半角 WARNING 清零
 - [ ] `tests/fixtures/stress-markdown.md` 中的 `==高亮==`、`<u>`、`++下划线++`、`~~删除~~`、有序列表、表格、非开头引用和 `---` 跳过规则都没有回退
-- [ ] `tests/fixtures/stress-markdown.md` 中的 Markdown/YAML 长行代码块在公众号预览和布丁 H5 预览里都自动换行,不需要横向拖动
+- [ ] `tests/fixtures/stress-markdown.md` 中的 Markdown/YAML 长行代码块在公众号预览里自动换行,不需要横向拖动
 - [ ] `skillhub doctor-skill skills/gzh-format --profile team` 为 OK
 
 ## 自定义主题生成行为

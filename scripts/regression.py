@@ -17,6 +17,23 @@ def run(cmd):
     subprocess.run([str(c) for c in cmd], check=True)
 
 
+def run_expect_failure(cmd, expected_error):
+    print("+ expect failure: " + " ".join(str(c) for c in cmd))
+    result = subprocess.run(
+        [str(c) for c in cmd],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        raise AssertionError(f"command unexpectedly succeeded: {cmd}")
+    combined = result.stdout + result.stderr
+    if expected_error not in combined:
+        raise AssertionError(
+            f"missing expected error {expected_error!r} in command output: {combined!r}"
+        )
+
+
 def assert_contains(path, needle):
     text = path.read_text(encoding="utf-8")
     if needle not in text:
@@ -35,7 +52,6 @@ def main():
     preview = OUT_DIR / "sample-minimal_预览.html"
     stress_html = OUT_DIR / "stress-minimal.html"
     stress_preview = OUT_DIR / "stress-minimal_预览.html"
-    pudding_html = OUT_DIR / "stress-pudding.html"
 
     run([sys.executable, ROOT / "scripts" / "component_lint.py", ROOT])
     run([sys.executable, ROOT / "scripts" / "render_markdown.py", SAMPLE, html])
@@ -44,7 +60,10 @@ def main():
     run([sys.executable, ROOT / "scripts" / "render_markdown.py", STRESS, stress_html])
     run([sys.executable, ROOT / "scripts" / "validate_gzh_html.py", stress_html])
     run([sys.executable, ROOT / "scripts" / "wrap_preview.py", stress_html, stress_preview])
-    run([sys.executable, ROOT / "scripts" / "render_markdown.py", STRESS, pudding_html, "--target", "pudding"])
+    run_expect_failure(
+        [sys.executable, ROOT / "scripts" / "render_markdown.py", STRESS, "--target", "pudding"],
+        "unrecognized arguments: --target",
+    )
 
     assert_contains(html, "font-size:54px")
     assert_contains(html, "text-align:left")
@@ -84,28 +103,10 @@ def main():
     assert_not_contains(stress_html, "++双加号下划线++")
     assert_not_contains(stress_html, "~~旧说法~~")
 
-    assert_contains(pudding_html, "<article")
-    assert_contains(pudding_html, "第二行允许换行，但中间不能出现空白行。")
-    assert_not_contains(pudding_html, "“开头引言")
-    assert_not_contains(pudding_html, "<br><br>")
-    assert_contains(pudding_html, "第一，什么时候触发？")
-    assert_contains(pudding_html, "<ul")
-    assert_contains(pudding_html, "<ol")
-    assert_contains(pudding_html, "生成后怎么验证？")
-    assert_contains(pudding_html, "<table")
-    assert_contains(pudding_html, "<pre")
-    assert_contains(pudding_html, "<h2")
-    assert_contains(pudding_html, "<h3")
-    assert_contains(pudding_html, "<h4")
-    assert_contains(pudding_html, "一、行内语法")
-    assert_not_contains(pudding_html, "font-size:36px")
-    assert_not_contains(pudding_html, "span leaf")
-
     print(f"regression ok: {html}")
     print(f"preview: {preview}")
     print(f"stress regression ok: {stress_html}")
     print(f"stress preview: {stress_preview}")
-    print(f"pudding regression ok: {pudding_html}")
 
 
 if __name__ == "__main__":

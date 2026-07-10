@@ -4,21 +4,18 @@ owner: content-factory
 status: active
 
 purpose: >-
-  Convert Obsidian/Markdown long-form articles into target-specific HTML:
-  WeChat Official Account compatible inline-style HTML or Pudding-friendly H5
-  preview HTML. Package local previews and keep publishing/syncing delegated.
-  Editable Pudding admin content must be synced from source Markdown, not from
-  rendered HTML.
+  Convert Obsidian/Markdown long-form articles into WeChat Official Account
+  compatible inline-style HTML, validate the result, and package a local
+  copy preview. Publishing and credentialed draft creation stay delegated.
 
 triggers:
   use_when:
     - "用户要求公众号排版、微信排版、gzh-format 或把 Markdown/OB 长文转公众号 HTML。"
-    - "用户要求布丁排版、生成适合布丁 H5 的长文排版。"
     - "用户要求查看、维护或生成公众号排版主题。"
   do_not_use_when:
+    - "用户要求 Pudding/H5 或其它平台排版。"
     - "用户要求创建公众号草稿、发布、群发或 freepublish。"
-    - "用户只要求同步布丁或其他平台分发,且不需要排版。"
-    - "用户要求写稿、改写事实、生成正文内容。"
+    - "用户要求写稿、改写事实或生成正文内容。"
 
 inputs:
   - name: markdown_file
@@ -34,13 +31,7 @@ inputs:
     required: false
     default: minimal
     values: [minimal, red, green]
-    description: "默认简约。当前确定性 renderer 仅支持 minimal; red/green 为组件库模式。"
-  - name: target
-    type: enum
-    required: false
-    default: wechat
-    values: [wechat, pudding]
-    description: "wechat 输出公众号兼容 HTML;pudding 输出布丁 H5 预览 HTML,不作为布丁后台 content。"
+    description: "默认简约。当前确定性 renderer 仅支持 minimal;red/green 为组件库模式。"
   - name: output_html
     type: path
     required: false
@@ -49,38 +40,37 @@ inputs:
 outputs:
   - name: wechat_html
     type: file
-    required: false
+    required: true
     description: "从顶层 <section> 开始的公众号正文 HTML 片段,不包含 html/head/body。"
-  - name: pudding_html
-    type: file
-    required: false
-    description: "从顶层 <article> 开始的布丁 H5 预览 HTML 片段,不包含微信 span leaf;不要同步到布丁后台 content。"
   - name: preview_html
     type: file
     required: false
-    description: "本地预览页或可直接打开的 HTML 片段;复制按钮和脚本不进入正文产物。"
+    description: "带复制按钮的本地预览页;按钮和脚本不进入正文产物。"
   - name: validation_report
     type: text
-    required: false
-    description: "wechat target 使用 validate_gzh_html.py;pudding target 使用浏览器预览。布丁后台同步对源 Markdown 使用 pudding sync dry-run。"
+    required: true
+    description: "validate_gzh_html.py 输出的公众号兼容性报告。"
 
 stops:
   - name: missing_input
     condition: "没有 markdown_file 或 markdown_text,且无法从上下文推断。"
+  - name: unsupported_platform
+    condition: "用户要求 Pudding/H5 或其它非微信公众号 target。"
   - name: unsupported_deterministic_theme
-    condition: "用户要求用 red/green 走命令行自动渲染,但尚未实现对应 renderer adapter。"
+    condition: "用户要求 red/green 命令行自动渲染,但尚未实现对应 renderer adapter。"
   - name: invalid_html
-    condition: "wechat target 的 validate_gzh_html.py 报 ERROR,或 pudding target 预览 HTML 明显破版。"
+    condition: "validate_gzh_html.py 报 ERROR。"
   - name: non_markdown_input_needs_normalization
-    condition: "输入为 docx/pdf/富文本等非 Markdown,需先按 references/format-normalize.md 归一并确认结构。"
+    condition: "输入为 docx/pdf/富文本等非 Markdown,需先归一并确认结构。"
 
 delegates:
   - name: wechat-draft-sync
     kind: skill
-    when: "用户确认把已校验 HTML 创建到微信公众号草稿箱。"
+    when: "用户明确要求把已校验 HTML 创建到微信公众号草稿箱。"
+    note: "凭证 doctor、配置读取、图片上传和微信 API 调用全部由该独立能力承担。"
   - name: scripts/render_markdown.py
     kind: cli
-    when: "使用默认 minimal 主题确定性渲染 Markdown,target 可为 wechat 或 pudding。"
+    when: "使用默认 minimal 主题确定性渲染 Markdown。"
   - name: scripts/component_lint.py
     kind: cli
     when: "修改主题组件库后检查源头反模式。"
@@ -91,16 +81,26 @@ delegates:
     kind: cli
     when: "生成本地复制预览页。"
 
+credentials:
+  mode: none
+  required: false
+  reads_environment: false
+  reads_config_files: false
+  note: "本地排版、校验和预览不需要 AppID、AppSecret 或 access token。"
+
+network:
+  required: false
+  allowed_hosts: []
+
 forbidden:
   - read_wechat_appsecret_or_access_token
-  - read_dotenv_or_cookie_files
+  - read_environment_or_credential_config
+  - read_dotenv_keychain_or_cookie_files
   - create_wechat_draft_directly
   - publish_or_freepublish_wechat_article
-  - call_pudding_backend_api_directly
+  - support_non_wechat_render_targets
   - rewrite_article_facts_or_add_unrequested_summary
   - output_html_head_body_or_script_in_wechat_content
-  - output_wechat_span_leaf_in_pudding_target
-  - sync_rendered_html_to_pudding_admin_content
   - mix_components_from_multiple_themes_in_one_article
   - hardcode_user_absolute_paths_in_skill_docs
 
@@ -115,9 +115,6 @@ state:
     - name: shared_components
       path: themes/_shared/common-components.md
       required: true
-    - name: pudding_target
-      path: references/pudding-target.md
-      required: true
   runtime_outputs:
     - path: /private/tmp/gzh-format
       description: "默认预览和回归输出目录;不得作为持久状态依赖。"
@@ -127,11 +124,6 @@ scripts:
     deterministic: true
     supports_themes: [minimal]
     required_flags: ["--theme"]
-    optional_flags: ["--target"]
-  - path: scripts/build_pudding_sync_copy.py
-    deterministic: true
-    legacy: true
-    warning: "Do not use for editable Pudding admin content; sync source Markdown with pudding sync instead."
   - path: scripts/component_lint.py
     deterministic: true
   - path: scripts/validate_gzh_html.py
@@ -145,16 +137,18 @@ tests:
   regression_cases:
     - assets/sample-article.md
     - tests/fixtures/stress-markdown.md
+    - "legacy --target pudding is rejected"
   commands:
     - "python3 scripts/component_lint.py ."
     - "python3 scripts/regression.py"
-    - "skillhub doctor-skill skills/gzh-format --profile team"
+    - "skillhub doctor-skill skills/gzh-format --profile commercial"
 
 review:
   lint:
     command: "skillhub lint-skill skills/gzh-format"
   doctor:
-    command: "skillhub doctor-skill skills/gzh-format --profile team"
+    command: "skillhub doctor-skill skills/gzh-format --profile commercial"
   notes:
-    - "根 SKILL.md 保持薄壳,主题审美细节只放 themes/ 和 references/。"
-    - "新增 red/green 确定性 renderer adapter 前,不要承诺命令行自动渲染这些主题。"
+    - "排版链路必须在未配置任何 WECHAT_* 环境变量时完整通过。"
+    - "AppID/AppSecret 配置只属于独立 wechat-draft-sync,不得复制进本仓库。"
+    - "新增 red/green renderer adapter 前,不要承诺命令行自动渲染这些主题。"

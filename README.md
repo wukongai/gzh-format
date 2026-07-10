@@ -20,7 +20,7 @@
 
 ```text
 Markdown
-  → 选择目标平台和主题
+  → 选择主题
   → 加载组件与映射规则
   → 生成 HTML
   → 运行微信兼容校验
@@ -36,7 +36,6 @@ Markdown
 - 生成带“复制到公众号”按钮的本地预览页。
 - 用确定性脚本检查禁用标签、样式和结构问题。
 - 提供固定样例与压力样例回归，修改后可以一键复测。
-- 可选生成普通 H5 语义的 Pudding 预览 HTML；它不是运行依赖。
 
 ## 主题状态
 
@@ -212,12 +211,26 @@ gzh-format/
 
 ## 隐私与安全
 
-- 不读取 AppSecret、access token、cookie、Keychain 或 `.env`。
+- 本地排版不需要微信公众号 AppID、AppSecret 或 access token。
+- 不读取环境变量、AppSecret、access token、cookie、Keychain、`.env` 或其它凭证配置。
 - 不请求网络，不上传文章，不把内容发送到第三方服务。
 - 不创建公众号草稿，不发布，不群发。
 - 所有默认输出都保存在用户指定的本地路径或系统临时目录。
 
 安装任何第三方 Skill 前，都建议先阅读它的 `SKILL.md` 和 `scripts/`。本项目把执行边界写在 [skill.contract.yaml](skill.contract.yaml)，便于人工或工具审计。
+
+## 公众号凭证与自动草稿
+
+如果你只是在本地排版，然后点击预览页的“复制到公众号”，不需要配置任何公众号凭证。
+
+自动创建公众号草稿属于权限更高的独立流程，应交给单独安装的 `wechat-draft-sync` 或同类发布工具。安全的协助方式是：
+
+1. 发布工具先运行本地 doctor，只返回“是否已配置”这类布尔状态，不显示密钥。
+2. AppID/AppSecret 只保存在该发布工具约定的本地凭证目录或系统凭证存储中，不写进本仓库、文章、prompt 或聊天记录。
+3. dry-run 先检查标题、摘要、封面和正文图片计划；用户确认后才联网创建草稿。
+4. AppSecret 泄露时立即去微信公众平台重置，再更新本地配置。
+
+`gzh-format` 不读取发布工具的凭证目录。用户要求自动草稿时，它只把已经校验的 HTML 交给独立发布工具。
 
 ## 开发与验证
 
@@ -240,7 +253,7 @@ skillhub doctor-skill . --profile team
 
 本项目基于 [isjiamu/gzh-design-skill](https://github.com/isjiamu/gzh-design-skill) 继续改造，保留了上游作者甲木（Jiamu）与摸鱼小李（Moyu Xiaoli）的版权声明。
 
-当前版本在上游基础上完成了默认主题重构、薄入口与 contract 分层、确定性 Markdown renderer、Pudding H5 target、压力回归和本地预览链路等修改。完整来源和修改范围见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+当前版本在上游基础上完成了默认主题重构、薄入口与 contract 分层、确定性 Markdown renderer、压力回归和本地预览链路等修改。完整来源和修改范围见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 本项目以 [GNU AGPL-3.0-or-later](LICENSE) 发布。你可以使用、修改和再分发，但分发修改版本或通过网络提供修改版本时，需要遵守 AGPL 的源码与署名要求。
 
@@ -258,9 +271,13 @@ skillhub doctor-skill . --profile team
 
 可以。主题规则在 `themes/<theme-id>/components.md`。修改后先跑组件 lint 和回归。
 
-### 需要布丁账号吗？
+### 需要公众号 AppID 或 AppSecret 吗？
 
-不需要。公众号排版核心完全本地运行。Pudding 只是可选的 H5 预览目标和项目展示入口。
+不需要。排版、校验、本地预览和手工复制都完全在本地运行。只有另行启用自动草稿同步工具时，那个独立工具才需要本地 BYOK 配置。
+
+### 可以用它给其它平台做 H5 排版吗？
+
+不可以。`v0.2.0` 起公开版只承诺微信公众号 HTML；其它平台应使用各自独立的排版或同步工具。
 
 ### 为什么代码是开源的？
 
