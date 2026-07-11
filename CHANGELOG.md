@@ -2,6 +2,13 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.3.2] - 2026-07-11
+
+### Evaluation compatibility
+
+- Stopped presenting the human-readable installation record as a machine-verifiable JSON behavior report after newer skillhub production doctor versions introduced `EVAL107` validation.
+- Kept the record as declared, non-certified evidence and preserved the explicit boundary:structural readiness is not downstream content utility.
+
 ## [0.3.1] - 2026-07-11
 
 ### Windows compatibility

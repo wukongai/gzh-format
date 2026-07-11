@@ -179,7 +179,9 @@ evaluation:
       command: "python3 scripts/regression.py"
       gate: "--target pudding 必须被拒绝。"
     behavioral_results:
-      artifact: tests/evaluation/2026-07-11-install-and-render-results.md
+      summary: tests/evaluation/2026-07-11-install-and-render-results.md
+      status: documented_not_machine_certified
+      note: "人读安装与渲染记录不是 skillhub JSON behavior report;只声明证据存在,不宣称 utility 已认证。"
     independent_review: false
 
 review:
