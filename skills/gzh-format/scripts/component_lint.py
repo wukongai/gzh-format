@@ -17,6 +17,10 @@ import os
 import re
 import sys
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
+
 CJK = re.compile(r"[一-鿿㐀-䶿]")
 
 # (正则, 级别, 说明) —— 在每个 ```html 组件块内检查

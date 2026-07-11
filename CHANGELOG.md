@@ -2,6 +2,13 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.3.1] - 2026-07-11
+
+### Windows compatibility
+
+- Configured every Python CLI entry to emit UTF-8 safely, preventing `UnicodeEncodeError` when Windows runners or user terminals default to legacy `cp1252` output.
+- Added the shared console helper to the required release bundle and verified the full release check under a simulated `PYTHONIOENCODING=cp1252` environment.
+
 ## [0.3.0] - 2026-07-11
 
 ### Installation and compatibility

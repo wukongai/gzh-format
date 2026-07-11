@@ -16,6 +16,10 @@ validate_gzh_html.py（本预览页含 script/style，不参与校验）。
 import os
 import sys
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
+
 
 def main():
     if len(sys.argv) < 2:

@@ -9,8 +9,12 @@ assembly and can get dedicated render adapters later without changing SKILL.md.
 import argparse
 import html
 import re
+import sys
 from pathlib import Path
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_THEME = "minimal"

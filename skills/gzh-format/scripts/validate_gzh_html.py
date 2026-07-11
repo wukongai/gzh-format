@@ -17,6 +17,10 @@ import re
 import sys
 from html.parser import HTMLParser
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
+
 # (正则, 级别, 说明) —— ERROR 会被公众号编辑器过滤掉或导致样式失效
 FORBIDDEN = [
     (re.compile(r"<style[\s>]", re.I), "ERROR", "<style> 标签会被过滤，样式必须内联"),

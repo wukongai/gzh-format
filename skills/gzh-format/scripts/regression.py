@@ -6,6 +6,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = Path(tempfile.mkdtemp(prefix="gzh-format-regression-"))

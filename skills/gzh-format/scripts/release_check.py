@@ -9,6 +9,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+from _stdio import configure_utf8_stdio
+
+configure_utf8_stdio()
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parents[1]
@@ -27,6 +30,7 @@ REQUIRED = (
     "themes/minimal/components.md",
     "themes/red/components.md",
     "themes/green/components.md",
+    "scripts/_stdio.py",
     "scripts/component_lint.py",
     "scripts/render_markdown.py",
     "scripts/validate_gzh_html.py",
