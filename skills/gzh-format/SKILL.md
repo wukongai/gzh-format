@@ -1,6 +1,11 @@
 ---
 name: gzh-format
 description: 微信公众号长文排版 Skill。Use when the user asks for 公众号排版、微信排版、gzh-format、把 Markdown/OB 长文转为公众号编辑器兼容 HTML、生成本地预览、维护/新增公众号排版主题或多模板组件库。It routes through references/theme-index.md and themes/{id}/components.md, uses scripts/render_markdown.py for deterministic minimal rendering, validates/previews output, and stops before draft creation or publishing. Do not use for Pudding/H5 formatting, article writing, or platform publishing.
+license: AGPL-3.0-or-later
+metadata:
+  author: wukongai
+  version: "0.3.0"
+  compatibility: Requires Python 3.9+ and local filesystem access. Runtime formatting needs no network access or credentials.
 ---
 
 # GZH Format

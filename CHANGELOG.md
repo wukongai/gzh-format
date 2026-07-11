@@ -2,6 +2,23 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.3.0] - 2026-07-11
+
+### Installation and compatibility
+
+- Moved the installable bundle to the standard `skills/gzh-format/` catalog layout so `npx skills add wukongai/gzh-format` copies scripts, themes, fixtures, and licenses together.
+- Made `npx skills add` the primary cross-Agent installation path; retained Git clone only as a manual download and audit fallback.
+- Added clean-copy installation regression for Codex and Claude Code instead of accepting an installer's success message alone.
+- Documented the exact verified compatibility scope instead of claiming support for every Agent Skills client.
+- Added Agent Skills `license`, `compatibility`, author, and version metadata.
+
+### Validation and portability
+
+- Added an offline release checker for required files, relative links, secret-like content, absolute user paths, Python syntax, and functional regression.
+- Made regression outputs use the operating system temporary directory instead of hard-coding `/private/tmp`.
+- Added assertions that copy controls and scripts stay in the preview shell and never enter WeChat body HTML.
+- Added Ubuntu, macOS, and Windows CI for Python 3.9 and 3.14.
+
 ## [0.2.1] - 2026-07-11
 
 ### Documentation

@@ -38,7 +38,7 @@ The following parts were imported, reorganized, or modified from the upstream pr
 - Added stress fixtures and a regression runner covering inline syntax, lists, tables, quotes, code blocks, and preview generation.
 - Added standalone installation, privacy, contribution, security, and release documentation.
 
-More detailed adoption notes are maintained in [references/gzh-design-adoption.md](skills/gzh-format/references/gzh-design-adoption.md).
+More detailed adoption notes are maintained in [references/gzh-design-adoption.md](references/gzh-design-adoption.md).
 
 ## License scope
 

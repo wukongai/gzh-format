@@ -3,11 +3,12 @@
 
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = Path("/private/tmp/gzh-format/regression")
+OUT_DIR = Path(tempfile.mkdtemp(prefix="gzh-format-regression-"))
 SAMPLE = ROOT / "assets" / "sample-article.md"
 STRESS = ROOT / "tests" / "fixtures" / "stress-markdown.md"
 
@@ -70,6 +71,11 @@ def main():
     assert_contains(html, "<span leaf=\"\">01</span>")
     assert_not_contains(html, "PART")
     assert_not_contains(html, "CASE NOTES")
+    assert_not_contains(html, "<script")
+    assert_not_contains(html, "gzhCopyBtn")
+    assert_contains(preview, 'id="gzhCopyBtn"')
+    assert_contains(preview, 'id="gzh-content"')
+    assert_contains(preview, html.read_text(encoding="utf-8"))
 
     assert_contains(stress_html, "第二行允许换行，但中间不能出现空白行。")
     assert_contains(stress_html, "</strong><span leaf=\"\"> 应该保留加粗。</span><br>")
@@ -102,6 +108,10 @@ def main():
     assert_not_contains(stress_html, "<u>显式下划线</u>")
     assert_not_contains(stress_html, "++双加号下划线++")
     assert_not_contains(stress_html, "~~旧说法~~")
+    assert_not_contains(stress_html, "<script")
+    assert_not_contains(stress_html, "gzhCopyBtn")
+    assert_contains(stress_preview, 'id="gzhCopyBtn"')
+    assert_contains(stress_preview, stress_html.read_text(encoding="utf-8"))
 
     print(f"regression ok: {html}")
     print(f"preview: {preview}")

@@ -4,8 +4,8 @@
 
 ## 开始前
 
-1. 阅读 [SKILL.md](SKILL.md)，确认改动仍属于排版、预览或校验范围。
-2. 阅读 [skill.contract.yaml](skill.contract.yaml)，不要绕过停止点和禁止动作。
+1. 阅读 [SKILL.md](skills/gzh-format/SKILL.md)，确认改动仍属于排版、预览或校验范围。
+2. 阅读 [skill.contract.yaml](skills/gzh-format/skill.contract.yaml)，不要绕过停止点和禁止动作。
 3. 新功能先说明输入、输出、失败方式和验证用例。
 4. 不要提交文章隐私数据、真实凭证、cookie、token 或 `.env` 文件。
 
@@ -26,15 +26,15 @@
 ## 必跑验证
 
 ```bash
-python3 scripts/component_lint.py .
-python3 scripts/regression.py
+python3 skills/gzh-format/scripts/component_lint.py skills/gzh-format
+python3 skills/gzh-format/scripts/regression.py
 ```
 
 如果本机安装了 `skillhub`，再运行：
 
 ```bash
-skillhub lint-skill .
-skillhub doctor-skill . --profile team
+skillhub lint-skill skills/gzh-format
+skillhub doctor-skill skills/gzh-format --profile team
 ```
 
 提交说明应包含：改了什么、为什么改、用什么样例验证、是否影响现有主题或输出结构。
@@ -42,4 +42,3 @@ skillhub doctor-skill . --profile team
 ## 许可证
 
 提交贡献即表示你有权提交这些内容，并同意贡献以本项目的 GNU AGPL-3.0-or-later 许可证发布。不要提交来源不明的模板、图片、字体、品牌素材或大段受版权保护的内容。
-

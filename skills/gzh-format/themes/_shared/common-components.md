@@ -40,7 +40,7 @@
     <span style="font-size:12px;color:#9CA3AF;font-family:Consolas,Monaco,monospace;letter-spacing:1px;"><span leaf="">bash</span></span>
   </section>
   <section style="padding:11px 14px;">
-    <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#24292F;overflow-wrap:anywhere;word-break:break-word;"><span leaf="">npx skills add gzh-format</span></p>
+    <p style="margin:0;font-family:'SF Mono',Consolas,Monaco,monospace;font-size:13px;line-height:1.6;color:#24292F;overflow-wrap:anywhere;word-break:break-word;"><span leaf="">npx skills add wukongai/gzh-format</span></p>
   </section>
 </section>
 ```
