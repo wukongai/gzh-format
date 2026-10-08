@@ -2,6 +2,14 @@
 
 All notable changes to the standalone `gzh-format` distribution are documented here.
 
+## [0.3.3] - 2026-10-09
+
+### Formatting
+
+- Render copyable AI prompts, commands, scripts, and configuration snippets as code blocks, keeping ordinary quotes and prose in their existing components.
+- Convert quote markers only in a temporary formatting copy when a clear copy-and-use introduction identifies the snippet; preserve wording and line order.
+- Add a mixed prompt, command, and ordinary-quote regression fixture.
+
 ## [0.3.2] - 2026-07-11
 
 ### Evaluation compatibility

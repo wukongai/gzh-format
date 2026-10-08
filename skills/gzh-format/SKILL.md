@@ -4,7 +4,7 @@ description: 微信公众号长文排版 Skill。Use when the user asks for 公�
 license: AGPL-3.0-or-later
 metadata:
   author: wukongai
-  version: "0.3.2"
+  version: "0.3.3"
   compatibility: Requires Python 3.9+ and local filesystem access. Runtime formatting needs no network access or credentials.
 ---
 
@@ -55,6 +55,7 @@ metadata:
    - 读取 `themes/<theme-id>/components.md` 与 `themes/_shared/common-components.md`。
    - 只使用当前主题和 shared 组件,不要跨主题混用。
 4. 装配公众号 HTML:
+   - 先按 shared 组件库“一、代码块组件”的可复制内容规则检查 AI 提示词、操作命令和配置。需要从引用改成围栏代码块时只改临时工作副本的标记,原文措辞和行序保持不变;普通引言、观点和章节过渡仍按引用渲染。
    - 默认「简约」主题调用 `scripts/render_markdown.py`。
    - 其它主题按组件库的完整骨架和映射规则装配;需要确定性自动化时新增 renderer adapter。
    - 产物从顶层 `<section>` 开始,不输出 `<!DOCTYPE>`、`html`、`head`、`body`;所有样式内联;中文文本用 `<span leaf="">` 包裹。

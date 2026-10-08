@@ -116,6 +116,18 @@ def main():
     assert_contains(stress_preview, 'id="gzhCopyBtn"')
     assert_contains(stress_preview, stress_html.read_text(encoding="utf-8"))
 
+    copyable_html = OUT_DIR / "copyable-prompt.html"
+    run([sys.executable, ROOT / "scripts" / "render_markdown.py",
+         ROOT / "tests" / "fixtures" / "copyable-prompt-markdown.md", copyable_html])
+    run([sys.executable, ROOT / "scripts" / "validate_gzh_html.py", copyable_html])
+    assert_contains(copyable_html, '<span leaf="">prompt</span>')
+    assert_contains(copyable_html, "background:#1E293B")
+    assert_contains(copyable_html, "检查现有同步工具支持哪种代理。")
+    assert_contains(copyable_html, "连接失败就停止，不改走其他网络。")
+    assert_contains(copyable_html, "普通引用和章节过渡仍然保留引用样式。")
+    assert_contains(copyable_html, "ssh -N -D 127.0.0.1:1080 example-host")
+    assert_not_contains(copyable_html, "「检查现有同步工具")
+
     print(f"regression ok: {html}")
     print(f"preview: {preview}")
     print(f"stress regression ok: {stress_html}")
