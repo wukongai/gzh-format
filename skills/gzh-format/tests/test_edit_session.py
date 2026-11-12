@@ -18,10 +18,10 @@ class EditSessionTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.md, self.html = self.root / 'article.md', self.root / 'article.html'
         self.source = '---\ntitle: 保存测试\nrelated: []\n---\n\n## 标题\n\n### 1. 小标题\n\n第一段，[链接](https://example.invalid/a)。\n\n可删除的一段。\n\n最后一段。\n'
-        self.md.write_text(self.source)
-        self.html.write_text(render_markdown.render(self.source, 'minimal'))
+        self.md.write_text(self.source, encoding='utf-8')
+        self.html.write_text(render_markdown.render(self.source, 'minimal'), encoding='utf-8')
         self.path = edit_model.default_manifest(self.html)
-        self.path.write_text(json.dumps(edit_model.build_manifest(self.md, self.html)))
+        self.path.write_text(json.dumps(edit_model.build_manifest(self.md, self.html)), encoding='utf-8')
 
     def test_saved_deletion_can_be_undone_and_saved_with_stable_ids(self):
         session = edit_model.EditSession(self.path)
@@ -31,14 +31,14 @@ class EditSessionTests(unittest.TestCase):
         deleted['runs'] = []
         saved = session.save(package)
         self.assertEqual(saved['status'], 'saved')
-        self.assertNotIn('可删除的一段', self.md.read_text())
+        self.assertNotIn('可删除的一段', self.md.read_text(encoding='utf-8'))
         self.assertEqual([b['id'] for b in saved['package']['blocks']], [b['id'] for b in initial['blocks']])
         self.assertEqual(saved['package']['blocks'][package['blocks'].index(deleted)]['runs'], [])
         restored = copy.deepcopy(saved['package'])
         restored['blocks'] = initial['blocks']
         session.save(restored)
-        self.assertIn('可删除的一段', self.md.read_text())
-        self.assertIn('href="https://example.invalid/a"', self.html.read_text())
+        self.assertIn('可删除的一段', self.md.read_text(encoding='utf-8'))
+        self.assertIn('href="https://example.invalid/a"', self.html.read_text(encoding='utf-8'))
         self.assertEqual(edit_model.preflight(self.path)['revision'], 2)
 
     def test_snapshot_rebinds_current_html_and_stable_empty_slots(self):
@@ -66,7 +66,7 @@ class EditSessionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'conflict|冲突'):
             session.save(package)
         latest = session.public_package()
-        self.md.write_text(self.md.read_text() + '\n别的会话改了源文。\n')
+        self.md.write_text(self.md.read_text(encoding='utf-8') + '\n别的会话改了源文。\n', encoding='utf-8')
         before = self.md.read_bytes()
         with self.assertRaisesRegex(ValueError, 'conflict|漂移'):
             session.save(latest)

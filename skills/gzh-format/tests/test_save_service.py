@@ -91,21 +91,21 @@ class SaveServiceTests(unittest.TestCase):
         self.assertEqual(status, 200, data)
         self.assertEqual(data['status'], 'saved')
         self.assertEqual(data['package']['revision'], 1)
-        self.assertIn('这是保存后的文字。', self.md.read_text())
-        self.assertNotIn('第二段可以删除', self.html.read_text())
-        self.assertEqual(edit_model.image_urls(self.html.read_text()), self.manifest['images'])
-        self.assertEqual(edit_model.heading_texts(self.html.read_text()), self.manifest['headings'])
+        self.assertIn('这是保存后的文字。', self.md.read_text(encoding='utf-8'))
+        self.assertNotIn('第二段可以删除', self.html.read_text(encoding='utf-8'))
+        self.assertEqual(edit_model.image_urls(self.html.read_text(encoding='utf-8')), self.manifest['images'])
+        self.assertEqual(edit_model.heading_texts(self.html.read_text(encoding='utf-8')), self.manifest['headings'])
         backups = list(self.root.glob('.gzh-edits/*/r*/source.md'))
         self.assertEqual(len(backups), 1)
-        self.assertEqual(backups[0].read_text(), self.source)
+        self.assertEqual(backups[0].read_text(encoding='utf-8'), self.source)
         self.assertEqual(edit_model.preflight(self.manifest_path)['revision'], 1)
-        self.assertNotIn(self.server.session_token, self.md.read_text() + self.html.read_text() + self.manifest_path.read_text())
+        self.assertNotIn(self.server.session_token, self.md.read_text(encoding='utf-8') + self.html.read_text(encoding='utf-8') + self.manifest_path.read_text(encoding='utf-8'))
         second = data['package']
         self.edit_paragraph(second, text='第二次点击保存。')
         status, _, data = self.save(second)
         self.assertEqual(status, 200, data)
         self.assertEqual(data['package']['revision'], 2)
-        self.assertIn('第二次点击保存。', self.md.read_text())
+        self.assertIn('第二次点击保存。', self.md.read_text(encoding='utf-8'))
         self.assertEqual(edit_model.preflight(self.manifest_path)['revision'], 2)
 
     def test_save_then_undo_can_restore_deleted_paragraph(self):
@@ -118,7 +118,7 @@ class SaveServiceTests(unittest.TestCase):
         restored['blocks'] = original['blocks']
         status, _, data = self.save(restored)
         self.assertEqual(status, 200, data)
-        self.assertIn('第二段可以删除。', self.html.read_text())
+        self.assertIn('第二段可以删除。', self.html.read_text(encoding='utf-8'))
         self.assertEqual(data['package']['revision'], 2)
 
     def test_title_http_save_undo_and_reopen_preserve_body(self):
@@ -210,7 +210,7 @@ class SaveServiceTests(unittest.TestCase):
         before = self.snapshot()
         self.assertEqual(self.save(bad)[0], 400)
         self.assertEqual(before, self.snapshot())
-        self.md.write_text(self.source + '\n源文另有改动\n')
+        self.md.write_text(self.source + '\n源文另有改动\n', encoding='utf-8')
         before = self.snapshot()
         self.assertEqual(self.save()[0], 409)
         self.assertEqual(self.request('GET', '/api/state', headers={'X-GZH-Session': self.server.session_token})[0], 409)
@@ -218,10 +218,10 @@ class SaveServiceTests(unittest.TestCase):
 
     def test_manifest_cannot_be_rebound_to_another_article(self):
         other_md, other_html = self.root / 'other.md', self.root / 'other.html'
-        other_md.write_text(self.source.replace('本机草稿夹具', '其它文章'))
-        other_html.write_text(renderer.render(other_md.read_text(), 'minimal'))
+        other_md.write_text(self.source.replace('本机草稿夹具', '其它文章'), encoding='utf-8')
+        other_html.write_text(renderer.render(other_md.read_text(encoding='utf-8'), 'minimal'), encoding='utf-8')
         rebound = edit_model.build_manifest(other_md, other_html)
-        self.manifest_path.write_text(json.dumps(rebound))
+        self.manifest_path.write_text(json.dumps(rebound), encoding='utf-8')
         before = self.snapshot()
         self.assertEqual(self.save()[0], 409)
         self.assertEqual(self.request('GET', self.server.preview_url.removeprefix(self.server.origin))[0], 409)

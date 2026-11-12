@@ -22,15 +22,15 @@ class EditablePreviewTests(unittest.TestCase):
                        + '\n\n'.join(f'### {i}. 小标题\n\n原文段落{i}，含有 **加粗** 和 [链接](https://example.org/a)。' for i in range(1, 12))
                        + '\n\n' + '\n\n'.join(f'![图{i}](https://example.org/{i}.png)' for i in range(16))
                        + '\n\n> 引用原句\n\n- 列表甲\n- 列表乙\n\n[[不可丢的双链]]\n')
-        self.md.write_text(self.source)
-        self.html.write_text(renderer.render(self.source, 'minimal'))
+        self.md.write_text(self.source, encoding='utf-8')
+        self.html.write_text(renderer.render(self.source, 'minimal'), encoding='utf-8')
 
     def setup_edit(self):
         import edit_model
         self.model = edit_model
         manifest = edit_model.build_manifest(self.md, self.html)
         path = self.root / 'article.gzh-edit-manifest.json'
-        path.write_text(json.dumps(manifest, ensure_ascii=False))
+        path.write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
         package = edit_model.public_package(manifest)
         package['saved_at'] = '2026-10-24T00:00:00Z'
         return manifest, path, package
@@ -92,15 +92,15 @@ class EditablePreviewTests(unittest.TestCase):
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
         saved = self.model.apply_package(package, path, apply=True)
         self.assertEqual(saved['status'], 'saved')
-        new_md = self.md.read_text()
-        new_html = self.html.read_text()
+        new_md = self.md.read_text(encoding='utf-8')
+        new_html = self.html.read_text(encoding='utf-8')
         self.assertIn('<!-- 保留注释 -->', new_md)
         self.assertIn('[[不可丢的双链]]', new_md)
         self.assertNotIn('原文段落1，', new_md)
         self.assertNotIn('原文段落2，', new_html)
         self.assertEqual(manifest['images'], self.model.image_urls(new_html))
         self.assertEqual(manifest['headings'], self.model.heading_texts(new_html))
-        self.assertEqual(Path(saved['backup_dir'], 'source.md').read_text(), self.source)
+        self.assertEqual(Path(saved['backup_dir'], 'source.md').read_text(encoding='utf-8'), self.source)
         self.assertEqual(self.model.preflight(path)['status'], 'saved')
         self.assertEqual(self.model.apply_package(package, path, apply=True)['status'], 'already-imported')
         rerender = renderer.render(new_md, 'minimal', require_semantic_anchors=True)
@@ -140,7 +140,7 @@ class EditablePreviewTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model.apply_package(bad, path, apply=True)
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.iterdir()})
-        self.md.write_text(self.source + '\n后来改动\n')
+        self.md.write_text(self.source + '\n后来改动\n', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, 'conflict|冲突|漂移'):
             self.model.apply_package(package, path, apply=True)
         self.assertFalse((self.root / '.gzh-edits').exists())
@@ -148,20 +148,20 @@ class EditablePreviewTests(unittest.TestCase):
     def test_pending_package_and_source_drift_block_preflight(self):
         _, path, package = self.setup_edit()
         self.model.apply_package(package, path, apply=True)
-        pending = copy.deepcopy(self.model.public_package(json.loads(path.read_text())))
+        pending = copy.deepcopy(self.model.public_package(json.loads(path.read_text(encoding='utf-8'))))
         pending['blocks'][0]['runs'][0]['text'] += '未导入'
-        (self.root / 'pending.gzh-edit.json').write_text(json.dumps(pending))
+        (self.root / 'pending.gzh-edit.json').write_text(json.dumps(pending), encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '未导入|pending'):
             self.model.preflight(path)
         (self.root / 'pending.gzh-edit.json').unlink()
-        self.html.write_text(self.html.read_text() + '\n变更')
+        self.html.write_text(self.html.read_text(encoding='utf-8') + '\n变更', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, 'conflict|冲突|漂移'):
             self.model.preflight(path)
 
     def test_unedited_package_does_not_rewrite_source(self):
         _, path, package = self.setup_edit()
         self.model.apply_package(package, path, apply=True)
-        self.assertEqual(self.md.read_text(), self.source)
+        self.assertEqual(self.md.read_text(encoding='utf-8'), self.source)
 
     def test_failed_save_can_retry_and_restores_current_files(self):
         from unittest.mock import patch
@@ -179,25 +179,25 @@ class EditablePreviewTests(unittest.TestCase):
         block = next(b for b in package['blocks'] if b['kind'] == 'paragraph')
         block['runs'] = [{'text': '第一行\n第二行<script>只是文字</script>', 'red': False, 'bold': False, 'href': '', 'marks': []}]
         self.model.apply_package(package, path, apply=True)
-        self.assertNotIn('<script>', self.html.read_text())
-        self.assertIn('<br>', self.html.read_text())
-        state = json.loads(path.read_text())
+        self.assertNotIn('<script>', self.html.read_text(encoding='utf-8'))
+        self.assertIn('<br>', self.html.read_text(encoding='utf-8'))
+        state = json.loads(path.read_text(encoding='utf-8'))
         second = self.model.public_package(state)
         block = next(b for b in second['blocks'] if b['kind'] == 'paragraph')
         self.assertEqual(''.join(r['text'] for r in block['runs']), '第一行\n第二行<script>只是文字</script>')
         block['runs'][0]['red'] = True
         self.model.apply_package(second, path, apply=True)
-        self.assertEqual(json.loads(path.read_text())['revision'], 2)
+        self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['revision'], 2)
 
     def test_safe_link_apostrophe_is_preserved_when_editing_paragraph(self):
         source = self.source.replace('https://example.org/a', "https://example.org/it's")
-        self.md.write_text(source)
-        self.html.write_text(renderer.render(source, 'minimal'))
+        self.md.write_text(source, encoding='utf-8')
+        self.html.write_text(renderer.render(source, 'minimal'), encoding='utf-8')
         _, path, package = self.setup_edit()
         block = next(b for b in package['blocks'] if b['kind'] == 'paragraph')
         block['runs'][0]['text'] = '人工修改，'
         self.model.apply_package(package, path, apply=True)
-        self.assertIn("https://example.org/it&#x27;s", self.html.read_text())
+        self.assertIn("https://example.org/it&#x27;s", self.html.read_text(encoding='utf-8'))
 
     def test_crlf_source_and_original_bytes_are_preserved(self):
         raw = self.source.replace('\n', '\r\n').encode('utf-8')
@@ -219,10 +219,10 @@ class EditablePreviewTests(unittest.TestCase):
         custom = self.root / 'custom.html'
         generated = subprocess.run([sys.executable, str(wrapper), str(self.html), str(custom), '--editable', '--source-md', str(self.md)], capture_output=True)
         self.assertEqual(generated.returncode, 0, generated.stderr)
-        state = json.loads((self.root / 'article.gzh-edit-manifest.json').read_text())
+        state = json.loads((self.root / 'article.gzh-edit-manifest.json').read_text(encoding='utf-8'))
         package = self.model.public_package(state) if hasattr(self, 'model') else __import__('edit_model').public_package(state)
         __import__('edit_model').apply_package(package, self.root / 'article.gzh-edit-manifest.json', apply=True)
-        self.assertTrue('"revision": 1' in custom.read_text(), '自定义预览仍是旧修订')
+        self.assertTrue('"revision": 1' in custom.read_text(encoding='utf-8'), '自定义预览仍是旧修订')
         before = self.md.read_bytes()
         alias = self.root / 'alias.md'
         alias.symlink_to(self.md)
@@ -234,27 +234,27 @@ class EditablePreviewTests(unittest.TestCase):
         for prefix in ['（一）', '(1)', '01 ', '1. ', '一、']:
             with self.subTest(prefix=prefix):
                 source = '## 标题\n\n### ' + prefix + '保护标题\n\n正文。\n'
-                self.md.write_text(source)
-                self.html.write_text(renderer.render(source, 'minimal'))
+                self.md.write_text(source, encoding='utf-8')
+                self.html.write_text(renderer.render(source, 'minimal'), encoding='utf-8')
                 _, path, package = self.setup_edit()
                 heading = next(b for b in package['blocks'] if b['kind'] == 'h3')
                 heading['runs'][0]['text'] = '保护标题'
                 self.model.apply_package(package, path, apply=True)
-                self.assertIn('### <span data-gzh="manual-style"', self.md.read_text())
-                self.assertIn('保护标题', self.html.read_text())
+                self.assertIn('### <span data-gzh="manual-style"', self.md.read_text(encoding='utf-8'))
+                self.assertIn('保护标题', self.html.read_text(encoding='utf-8'))
 
     def test_h2_number_can_be_changed_and_deleted_independently(self):
         source = '---\ntitle: 序号编辑\nrelated: []\n---\n\n## 一、章节标题\n\n### 1. 子标题\n\n正文保留。\n'
-        self.md.write_text(source)
-        self.html.write_text(renderer.render(source, 'minimal'))
+        self.md.write_text(source, encoding='utf-8')
+        self.html.write_text(renderer.render(source, 'minimal'), encoding='utf-8')
         _, path, package = self.setup_edit()
         h2 = next(b for b in package['blocks'] if b['kind'] == 'h2')
         h3 = next(b for b in package['blocks'] if b['kind'] == 'h3')
         h2['number'] = '07'
         h3['runs'][0]['text'] = '3. 子标题'
         self.model.apply_package(package, path, apply=True)
-        saved_source = self.md.read_text()
-        saved_html = self.html.read_text()
+        saved_source = self.md.read_text(encoding='utf-8')
+        saved_html = self.html.read_text(encoding='utf-8')
         self.assertIn('gzh-h2-number:07', saved_source)
         self.assertIn('>07</span>', saved_html)
         self.assertIn('3. 子标题', saved_source)
@@ -265,56 +265,56 @@ class EditablePreviewTests(unittest.TestCase):
         h2['number'] = ''
         h3['runs'][0]['text'] = '子标题'
         self.model.apply_package(package, path, apply=True)
-        self.assertIn('gzh-h2-number:', self.md.read_text())
-        self.assertNotIn('>07</span>', self.html.read_text())
-        self.assertIn('子标题', self.md.read_text())
+        self.assertIn('gzh-h2-number:', self.md.read_text(encoding='utf-8'))
+        self.assertNotIn('>07</span>', self.html.read_text(encoding='utf-8'))
+        self.assertIn('子标题', self.md.read_text(encoding='utf-8'))
 
     def test_explicit_empty_h2_and_h3_runs_remove_heading_rows(self):
         source = '---\ntitle: 标题删除\nrelated: ["[[测试]]"]\n---\n\n# 标题删除\n\n## 一、章节标题\n\n### 1. 子标题\n\n正文保留。\n'
-        self.md.write_text(source)
-        self.html.write_text(renderer.render(source, 'minimal'))
+        self.md.write_text(source, encoding='utf-8')
+        self.html.write_text(renderer.render(source, 'minimal'), encoding='utf-8')
         _, path, package = self.setup_edit()
         for block in package['blocks']:
             if block['kind'] in {'h2', 'h3'}:
                 block['runs'] = []
         self.model.apply_package(package, path, apply=True)
-        self.assertNotIn('## 一、章节标题', self.md.read_text())
-        self.assertNotIn('### 1. 子标题', self.md.read_text())
-        self.assertNotIn('章节标题', self.html.read_text())
-        self.assertNotIn('子标题', self.html.read_text())
-        self.assertIn('正文保留', self.md.read_text())
+        self.assertNotIn('## 一、章节标题', self.md.read_text(encoding='utf-8'))
+        self.assertNotIn('### 1. 子标题', self.md.read_text(encoding='utf-8'))
+        self.assertNotIn('章节标题', self.html.read_text(encoding='utf-8'))
+        self.assertNotIn('子标题', self.html.read_text(encoding='utf-8'))
+        self.assertIn('正文保留', self.md.read_text(encoding='utf-8'))
 
     def test_micro_heading_keeps_component_type_after_edit(self):
         source = '## 标题\n\n第一，微标题。\n\n正文。\n'
-        self.md.write_text(source)
-        self.html.write_text(renderer.render(source, 'minimal'))
+        self.md.write_text(source, encoding='utf-8')
+        self.html.write_text(renderer.render(source, 'minimal'), encoding='utf-8')
         _, path, package = self.setup_edit()
         micro = next(b for b in package['blocks'] if b['kind'] == 'micro')
         micro['runs'][0]['text'] = '第一，人工标题。'
         result = self.model.apply_package(package, path)
         self.assertTrue(result['changes'])
         self.model.apply_package(package, path, apply=True)
-        self.assertIn('<h4 ', self.html.read_text())
-        self.assertTrue(any(b['kind'] == 'micro' for b in json.loads(path.read_text())['blocks']))
+        self.assertIn('<h4 ', self.html.read_text(encoding='utf-8'))
+        self.assertTrue(any(b['kind'] == 'micro' for b in json.loads(path.read_text(encoding='utf-8'))['blocks']))
 
     def test_metadata_refresh_rejects_body_edits(self):
         _, path, package = self.setup_edit()
         saved = self.model.apply_package(package, path, apply=True)
-        state = json.loads(path.read_text())
-        self.md.write_text(self.md.read_text() + '\n不能借同步元数据回写吞掉正文改动。\n')
+        state = json.loads(path.read_text(encoding='utf-8'))
+        self.md.write_text(self.md.read_text(encoding='utf-8') + '\n不能借同步元数据回写吞掉正文改动。\n', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '正文|冲突|conflict'):
             self.model.refresh_sync_metadata(path, Path(saved['backup_dir'], 'source.md'), expected_revision=state['revision'],
                                              expected_source_sha256=state['source_sha256'], expected_html_sha256=state['html_sha256'], apply=True)
 
     def test_multiline_quoted_metadata_cannot_masquerade_as_digest(self):
-        self.md.write_text('---\ntitle: "first\ndigest: old\nlast"\nrelated: []\n---\n\n正文。\n')
-        self.html.write_text(renderer.render(self.md.read_text(), 'minimal'))
+        self.md.write_text('---\ntitle: "first\ndigest: old\nlast"\nrelated: []\n---\n\n正文。\n', encoding='utf-8')
+        self.html.write_text(renderer.render(self.md.read_text(encoding='utf-8'), 'minimal'), encoding='utf-8')
         _, path, package = self.setup_edit()
         self.model.apply_package(package, path, apply=True)
-        state = json.loads(path.read_text())
+        state = json.loads(path.read_text(encoding='utf-8'))
         backup = self.root / 'sync-before.md'
         backup.write_bytes(self.md.read_bytes())
-        self.md.write_text(self.md.read_text().replace('digest: old', 'digest: changed'))
+        self.md.write_text(self.md.read_text(encoding='utf-8').replace('digest: old', 'digest: changed'), encoding='utf-8')
         with self.assertRaisesRegex(ValueError, '复杂|多行|conflict'):
             self.model.refresh_sync_metadata(path, backup, expected_revision=state['revision'],
                                              expected_source_sha256=state['source_sha256'], expected_html_sha256=state['html_sha256'], apply=True)

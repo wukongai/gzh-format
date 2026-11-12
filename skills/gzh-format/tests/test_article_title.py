@@ -21,7 +21,8 @@ class ArticleTitleTests(unittest.TestCase):
         self.path = edit_model.default_manifest(self.html)
 
     def setup_source(self, source):
-        self.md.write_text(source, encoding='utf-8')
+        # 夹具可包含 CRLF，写入时保留给定字节，避免 Windows 再转换一次换行。
+        self.md.write_bytes(source.encode('utf-8'))
         self.html.write_text(render_markdown.render(source, 'minimal'), encoding='utf-8')
         state = edit_model.build_manifest(self.md, self.html)
         self.path.write_text(json.dumps(state, ensure_ascii=False), encoding='utf-8')
@@ -43,7 +44,7 @@ class ArticleTitleTests(unittest.TestCase):
         self.setup_source(source)
         self.md.write_bytes(source.encode('utf-8'))
         state = edit_model.build_manifest(self.md, self.html)
-        self.path.write_text(json.dumps(state, ensure_ascii=False))
+        self.path.write_text(json.dumps(state, ensure_ascii=False), encoding='utf-8')
         before = self.html.read_bytes()
         package = edit_model.public_package(state)
         package['title'] = '新标题："引号" & <符号> #'
@@ -53,7 +54,7 @@ class ArticleTitleTests(unittest.TestCase):
         updated = edit_model.read_exact(self.md)
         self.assertIn('# 新标题："引号" & <符号> #\r\n', updated)
         self.assertNotIn('\n', updated.replace('\r\n', ''))
-        self.assertEqual(json.loads(self.path.read_text())['title'], package['title'])
+        self.assertEqual(json.loads(self.path.read_text(encoding='utf-8'))['title'], package['title'])
         self.assertEqual(Path(result['backup_dir'], 'source.md').read_bytes(), source.encode('utf-8'))
 
     def test_no_h1_save_does_not_add_h1_or_rename_file(self):
@@ -61,19 +62,19 @@ class ArticleTitleTests(unittest.TestCase):
         package = edit_model.public_package(state)
         package['title'] = '新标题'
         edit_model.apply_package(package, self.path, apply=True)
-        self.assertNotIn('\n# ', self.md.read_text())
+        self.assertNotIn('\n# ', self.md.read_text(encoding='utf-8'))
         self.assertTrue(self.md.exists())
 
     def test_legacy_manifest_and_package_preserve_title(self):
         state = self.setup_source('---\ntitle: 兼容标题\nrelated: []\n---\n\n正文。\n')
         state.pop('title', None)
-        self.path.write_text(json.dumps(state))
+        self.path.write_text(json.dumps(state), encoding='utf-8')
         loaded = edit_model.load_manifest(self.path)
         self.assertEqual(loaded['title'], '兼容标题')
         package = edit_model.public_package(loaded)
         package.pop('title', None)
         edit_model.apply_package(package, self.path, apply=True)
-        self.assertIn('title: 兼容标题', self.md.read_text())
+        self.assertIn('title: 兼容标题', self.md.read_text(encoding='utf-8'))
 
     def test_invalid_titles_write_nothing(self):
         state = self.setup_source('---\ntitle: 原标题\nrelated: []\n---\n\n正文。\n')
@@ -94,7 +95,7 @@ class ArticleTitleTests(unittest.TestCase):
                 package = edit_model.public_package(state)
                 package['title'] = '修改后标题'
                 edit_model.apply_package(package, self.path, apply=True)
-                self.assertEqual(self.md.read_text().count('title'), 1)
+                self.assertEqual(self.md.read_text(encoding='utf-8').count('title'), 1)
                 self.assertEqual(edit_model.build_manifest(self.md, self.html)['title'], '修改后标题')
 
     def test_comments_and_false_fence_close_never_become_article_h1(self):
@@ -108,7 +109,7 @@ class ArticleTitleTests(unittest.TestCase):
                 package = edit_model.public_package(state)
                 package['title'] = '新增发布标题'
                 edit_model.apply_package(package, self.path, apply=True)
-                self.assertTrue(self.md.read_text().endswith(source))
+                self.assertTrue(self.md.read_text(encoding='utf-8').endswith(source))
                 self.assertEqual(self.html.read_bytes(), before)
 
     def test_inline_commented_h1_is_readonly_while_body_stays_editable(self):
@@ -120,18 +121,18 @@ class ArticleTitleTests(unittest.TestCase):
         package['title'] = '不能只修改元数据的新题'
         with self.assertRaisesRegex(ValueError, 'H1|注释'):
             edit_model.apply_package(package, self.path, apply=True)
-        self.assertEqual(self.md.read_text(), source)
+        self.assertEqual(self.md.read_text(encoding='utf-8'), source)
         package = edit_model.public_package(state)
         paragraph = next(block for block in package['blocks'] if block['kind'] == 'paragraph')
         paragraph['runs'][0]['text'] = '正文仍可正常修订。'
         edit_model.apply_package(package, self.path, apply=True)
-        self.assertIn('# 原题 <!-- 标题说明 -->', self.md.read_text())
-        self.assertIn('正文仍可正常修订。', self.md.read_text())
+        self.assertIn('# 原题 <!-- 标题说明 -->', self.md.read_text(encoding='utf-8'))
+        self.assertIn('正文仍可正常修订。', self.md.read_text(encoding='utf-8'))
 
     def test_title_template_tokens_are_displayed_as_literal_text(self):
         title = '使用 {{TITLE_READONLY}} 和 {{TITLE_WARNING}} 配置'
         state = self.setup_source('---\ntitle: ' + json.dumps(title, ensure_ascii=False) + '\nrelated: []\n---\n\n正文。\n')
-        page = render_preview(self.html.read_text(), 'rendered', state)
+        page = render_preview(self.html.read_text(encoding='utf-8'), 'rendered', state)
         self.assertIn('<title>' + title + ' · 公众号排版预览</title>', page)
         self.assertIn('value="' + title + '"', page)
 
@@ -166,7 +167,7 @@ class ArticleTitleTests(unittest.TestCase):
         package = session.public_package()
         package['title'] = '添加到已有元数据的标题'
         first = session.save(package)
-        self.assertIn('related: []', self.md.read_text())
+        self.assertIn('related: []', self.md.read_text(encoding='utf-8'))
         legacy = first['package']
         legacy.pop('title')
         legacy['blocks'][0]['runs'][0]['text'] = '旧客户端只修改正文。'
@@ -190,7 +191,7 @@ class ArticleTitleTests(unittest.TestCase):
 
     def test_preview_title_is_outside_body_and_escaped(self):
         state = self.setup_source('---\ntitle: "标题 <符号>"\nrelated: []\n---\n\n正文。\n')
-        page = render_preview(self.html.read_text(), 'rendered', state)
+        page = render_preview(self.html.read_text(encoding='utf-8'), 'rendered', state)
         self.assertIn('id="gzh-title"', page)
         self.assertIn('标题 &lt;符号&gt;', page)
         self.assertLess(page.index('id="gzh-title"'), page.index('id="gzh-content"'))
