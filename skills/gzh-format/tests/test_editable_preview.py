@@ -35,6 +35,50 @@ class EditablePreviewTests(unittest.TestCase):
         package['saved_at'] = '2026-10-24T00:00:00Z'
         return manifest, path, package
 
+    def test_windows_crlf_html_maps_and_saves_without_weakening_conflict_checks(self):
+        # 在任何操作系统复现 Windows 文本写入；正文映射必须使用真实 CRLF 偏移。
+        import edit_model
+        source = self.source.replace('\n', '\r\n')
+        body = renderer.render(source, 'minimal').replace('\n', '\r\n')
+        self.md.write_bytes(source.encode('utf-8'))
+        self.html.write_bytes(body.encode('utf-8'))
+        state, path, package = self.setup_edit()
+        paragraph = next(b for b in state['blocks'] if b['kind'] == 'paragraph')
+        editable = edit_model.editable_body(body, state)
+        node = next(n for n in edit_model.Tree(editable).root.walk()
+                    if n.attrs.get('data-gzh-edit-id') == paragraph['id'])
+        self.assertEqual(edit_model.node_runs(node), paragraph['runs'])
+        import subprocess
+        wrapper = Path(__file__).resolve().parents[1] / 'scripts/wrap_preview.py'
+        preview = subprocess.run([sys.executable, str(wrapper), str(self.html),
+                                  '--editable', '--source-md', str(self.md), '--manifest', str(path)],
+                                 capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        page = edit_model.read_exact(state['preview_file'])
+        nodes = list(edit_model.Tree(page).root.walk())
+        for block in state['blocks']:
+            node = next(n for n in nodes
+                        if n.attrs.get('data-gzh-edit-id') == block['id']
+                        and n.attrs.get('data-gzh-edit-part') != 'number')
+            self.assertEqual(edit_model.node_runs(node), block['runs'])
+        self.html.write_bytes(body.replace('原文段落1', '不同正文').encode('utf-8'))
+        with self.assertRaises(ValueError):
+            edit_model.build_manifest(self.md, self.html)
+        self.html.write_bytes(body.encode('utf-8'))
+        package['title'] = 'Windows 标题修订'
+        saved = edit_model.apply_package(package, path, apply=True)
+        self.assertEqual(saved['status'], 'saved')
+        self.assertEqual(self.html.read_bytes(), body.encode('utf-8'))
+        package = edit_model.public_package(edit_model.load_manifest(path))
+        block = next(b for b in package['blocks'] if b['kind'] == 'paragraph')
+        block['runs'][0]['text'] = 'Windows 正文修订'
+        saved = edit_model.apply_package(package, path, apply=True)
+        self.assertEqual(saved['status'], 'saved')
+        self.assertIn('Windows 正文修订', edit_model.read_exact(self.md))
+        self.assertNotIn('\n', edit_model.read_exact(self.md).replace('\r\n', ''))
+        self.assertEqual(Path(saved['backup_dir'], 'body.html').read_bytes(), body.encode('utf-8'))
+        self.assertEqual(edit_model.preflight(path)['status'], 'saved')
+
     def test_save_delete_and_independent_styles_preserve_images_and_numbers(self):
         manifest, path, package = self.setup_edit()
         block = next(b for b in package['blocks'] if b['kind'] == 'paragraph')

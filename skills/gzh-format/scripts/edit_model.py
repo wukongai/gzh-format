@@ -172,6 +172,14 @@ def build_manifest(source_md, html_file, *, revision=0, imported=None):
     mode = renderer.resolve_mode(source, source_md)
     mapping = []
     generated = render_checked(source, mode, mapping)
+    # Windows 文本写入会把 LF HTML 转为 CRLF；同步映射偏移后仍逐字核对正文。
+    # 不改原文件或哈希，也不把文字/结构差异当作换行差异放行。
+    if '\r\n' in body and '\n' not in body.replace('\r\n', '') and '\r' not in generated:
+        for record in mapping:
+            for key in ('html_start', 'html_end'):
+                offset = record[key]
+                record[key] += generated.count('\n', 0, offset)
+        generated = generated.replace('\n', '\r\n')
     if generated.strip() != body.strip():
         raise ValueError('HTML 与源 Markdown 不对应；请从实际渲染工作副本重新生成，禁止猜测回填')
     # renderer 总是末尾换行；允许 CLI 的旧片段没有该换行，不改变节点区间。

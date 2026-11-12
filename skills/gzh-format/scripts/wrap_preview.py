@@ -63,7 +63,9 @@ def main():
     out = Path(args.output).resolve() if args.output else src.with_name(src.stem + '_预览.html')
     if args.editable and not args.source_md:
         parser.error('--editable 必须指定 --source-md，不能猜测源文')
-    content = src.read_text(encoding='utf-8')
+    # 编辑映射基于磁盘原文偏移，读取正文时不能自动把 CRLF 变成 LF。
+    with src.open('r', encoding='utf-8', newline='') as stream:
+        content = stream.read()
     manifest = None
     if args.editable:
         from edit_model import build_manifest, default_manifest, load_manifest, atomic_write
@@ -94,7 +96,8 @@ def main():
         preview = render_preview(content, title)
     if out == src:
         parser.error('预览输出不能覆盖正文 HTML')
-    out.write_text(preview, encoding='utf-8')
+    with out.open('w', encoding='utf-8', newline='') as stream:
+        stream.write(preview)
     print(f'✓ 已生成预览页：{out}')
     if args.editable:
         print('要直接保存草稿，请用 serve_preview.py --manifest <上述基线> 打开本地保存页面。')
