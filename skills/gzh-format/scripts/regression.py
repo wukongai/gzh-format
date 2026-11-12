@@ -75,6 +75,7 @@ def run_expect_failure(cmd, expected_error):
         check=False,
         capture_output=True,
         text=True,
+        encoding='utf-8',
     )
     if result.returncode == 0:
         raise AssertionError(f"command unexpectedly succeeded: {cmd}")
