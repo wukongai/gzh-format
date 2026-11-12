@@ -1,3 +1,16 @@
+---
+title: gzh-format 发布流程
+type: guide
+status: active
+created: 2026-08-02
+updated: 2026-11-12
+tags: [公众号, 分发, 发布验证]
+related:
+  - "[产品说明](README.md)"
+  - "[贡献说明](CONTRIBUTING.md)"
+  - "[编辑保存验证](skills/gzh-format/references/editable-preview.md#独立夹具验证)"
+---
+
 # Releasing gzh-format
 
 ## Single source of truth
@@ -14,19 +27,22 @@
 
 ```bash
 python3 skills/gzh-format/scripts/release_check.py
-python3 skills/gzh-format/scripts/component_lint.py skills/gzh-format
-python3 skills/gzh-format/scripts/regression.py
-skillhub lint-skill skills/gzh-format
-skillhub doctor-skill skills/gzh-format --profile commercial
 ```
 
 命令说明：
 
-- `release_check.py`：离线检查安装包完整性、相对链接、用户绝对路径、secret-like 内容、Python 语法和功能回归。
-- `component_lint.py`：检查主题组件源头是否包含微信不兼容结构。
-- `regression.py`：渲染普通样例和压力样例，并检查预览链路。
-- `lint-skill`：验证 Agent Skill 基础结构。
-- `doctor-skill --profile commercial`：按对外发布严格度检查边界、安全与工程化。
+- `release_check.py`：检查安装包完整性、相对链接、用户绝对路径、secret-like 内容和 Python 语法,再调用 `regression.py` 运行完整排版与共享保存 Python/HTTP 夹具。测试不调用外网或微信;本机 HTTP 用例需要 loopback 端口可用。
+- `--static-only`：只做静态分发检查,不能据此报告完整回归通过。
+
+公开 CI 同时运行六组 Python 平台检查和一个 Ubuntu 浏览器任务（43 项 DOM/HTTP 用例），覆盖手机宽度、编辑状态与直接保存。
+
+本地浏览器直接保存另在 Skill 目录运行:
+
+```bash
+node --test tests/test_editor_dom.cjs tests/test_editable_e2e.cjs
+```
+
+`--test` 运行 DOM 与真实本机 HTTP 端到端用例,执行命令的 Node 须能解析 `playwright`,并有可用 Chromium/Chrome。已有依赖可用 `NODE_PATH="<已有 node_modules 目录>"` 接入,浏览器可用 `GZH_TEST_BROWSER="<已有浏览器可执行文件>"` 指定。当前本机 SkillHub 没有旧 `lint-skill` / `doctor-skill` 子命令,不将它们作为发布通过门禁;可选项目入口环境巡检不能替代上述验证。夹具、真实文章和微信端的证据分别记录,见[共享验证说明](skills/gzh-format/references/editable-preview.md#独立夹具验证)。
 
 随后确认：
 
@@ -53,8 +69,10 @@ npx skills add <仓库路径或 URL> --skill gzh-format --agent claude-code --co
 test -f <安装目录>/SKILL.md
 test -f <安装目录>/LICENSE
 test -f <安装目录>/scripts/regression.py
+test -f <安装目录>/scripts/serve_preview.py
+test -f <安装目录>/assets/editor.js
 test -f <安装目录>/themes/minimal/components.md
-python3 <安装目录>/scripts/regression.py
+python3 <安装目录>/scripts/release_check.py
 ```
 
 `test -f` 用于确认关键文件实际存在；安装器显示“success”但缺少 `scripts/` 时仍视为失败。

@@ -1,0 +1,20 @@
+/* 工具栏在正文之外；复制富文本时仅克隆 #gzh-content。 */
+/* 吸附在 54px 高的复制栏下方并留出间距，保持正文底部也能编辑。 */
+#gzh-editor-toolbar{position:sticky;top:66px;z-index:98;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:960px;margin:72px auto 0;padding:12px 16px;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);font:13px/1.5 -apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;color:#374151;}
+#gzh-editor-toolbar button{font:inherit;color:#374151;background:#fff;border:1px solid #d1d5db;border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap;}
+#gzh-editor-toolbar button:hover{background:#f3f4f6;}
+#gzh-editor-toolbar button:focus-visible{outline:2px solid #059669;outline-offset:2px;}
+#gzh-editor-toolbar button:disabled{cursor:default;opacity:.4;}
+#gzh-editor-toolbar #gzhSaveDraftBtn{color:#fff;background:#059669;border-color:#059669;font-weight:600;}
+#gzh-editor-status{flex-basis:100%;font-size:12px;color:#6b7280;}
+#gzh-editor-autosave{font-size:12px;color:#6b7280;white-space:nowrap;}
+#gzh-editor-toolbar[data-editing="false"]~.gzh-stage [data-gzh-edit-id]{outline:none;}
+#gzh-content [data-gzh-edit-id][contenteditable="true"]{white-space:pre-wrap;outline:1px dashed transparent;outline-offset:3px;cursor:text;}
+#gzh-content [data-gzh-edit-id][contenteditable="true"]:hover{outline-color:#d1d5db;}
+#gzh-content [data-gzh-edit-id][contenteditable="true"]:focus{outline-color:#059669;}
+#gzh-content [data-gzh-edit-id][contenteditable="true"] a{cursor:text;}
+#gzh-content [data-gzh-edit-empty="1"]{display:none;}
+#gzh-content [data-gzh-edit-part="number"][data-gzh-edit-empty="1"][contenteditable="true"]{display:block;}
+#gzh-editor-toolbar~.gzh-stage{margin-top:20px;}
+@media(max-width:520px){#gzh-editor-toolbar{margin:68px 8px 0;padding:10px;}#gzh-editor-toolbar button{padding:6px 8px;}}
+@media print{#gzh-editor-toolbar{display:none;}#gzh-content [data-gzh-edit-id]{outline:none!important;}}

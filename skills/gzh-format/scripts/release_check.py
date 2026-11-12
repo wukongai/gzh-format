@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
@@ -24,6 +25,8 @@ REQUIRED = (
     "skill.contract.yaml",
     "agents/openai.yaml",
     "assets/preview-template.html",
+    "assets/editor.js",
+    "assets/editor.css",
     "assets/sample-article.md",
     "references/theme-index.md",
     "themes/_shared/common-components.md",
@@ -35,11 +38,25 @@ REQUIRED = (
     "scripts/render_markdown.py",
     "scripts/validate_gzh_html.py",
     "scripts/wrap_preview.py",
+    "scripts/edit_model.py",
+    "scripts/article_title.py",
+    "scripts/import_edit.py",
+    "scripts/preflight_edit.py",
+    "scripts/serve_preview.py",
+    "tests/test_edit_session.py",
+    "tests/test_article_title.py",
+    "tests/test_save_service.py",
+    "references/editable-preview.md",
+    "tests/test_editable_render.py",
+    "tests/test_editable_preview.py",
+    "tests/test_editor_dom.cjs",
+    "tests/test_editable_e2e.cjs",
     "scripts/regression.py",
     "scripts/release_check.py",
     "tests/fixtures/stress-markdown.md",
     "tests/evaluation/held-out-mixed.md",
     "tests/evaluation/2026-07-11-install-and-render-results.md",
+    "tests/evaluation/2026-10-24-editable-preview.md",
 )
 REPOSITORY_REQUIRED = (
     "README.md",
@@ -139,7 +156,7 @@ def check_security(files: list[Path], problems: list[str]) -> None:
 def check_python_syntax(problems: list[str]) -> None:
     for path in sorted((ROOT / "scripts").glob("*.py")):
         try:
-            compile(path.read_text(encoding="utf-8"), str(path), "exec")
+            ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         except SyntaxError as exc:
             problems.append(f"python syntax error: {path.relative_to(ROOT)}:{exc.lineno}: {exc.msg}")
 

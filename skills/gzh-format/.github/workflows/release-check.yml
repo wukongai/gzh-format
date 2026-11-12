@@ -1,0 +1,49 @@
+name: release-check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-release-check:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.9", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run offline release checks
+        run: python skills/gzh-format/scripts/release_check.py
+
+  browser-edit-check:
+    name: Ubuntu / browser editing and mobile preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # 仅安装测试依赖；发布包运行时继续只需 Python 标准库。
+      - name: Install browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/gzh-browser-deps" --no-save --package-lock=false playwright@1.62.1
+          "$RUNNER_TEMP/gzh-browser-deps/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify mobile preview and direct saving
+        working-directory: skills/gzh-format
+        env:
+          NODE_PATH: ${{ runner.temp }}/gzh-browser-deps/node_modules
+        run: node --test tests/test_editor_dom.cjs tests/test_editable_e2e.cjs

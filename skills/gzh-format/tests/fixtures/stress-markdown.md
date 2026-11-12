@@ -56,3 +56,5 @@ python3 scripts/render_markdown.py demo.md demo.html --theme minimal
 该放在哪一层？
 
 生成后怎么验证？
+
+关注艾笑老师，学习 AI 底层能力和实操干货，进公号主页看更多。

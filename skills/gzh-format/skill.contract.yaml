@@ -1,4 +1,5 @@
 name: gzh-format
+version: "0.6.5"
 kind: renderer-skill
 owner: content-factory
 status: active
@@ -6,16 +7,19 @@ status: active
 purpose: >-
   Convert Obsidian/Markdown long-form articles into WeChat Official Account
   compatible inline-style HTML, validate the result, and package a local
-  copy preview. Publishing and credentialed draft creation stay delegated.
+  copy or editable preview. Save author edits through a loopback service with backups and verify saved
+  revisions before handoff. Publishing and credentialed draft creation stay delegated.
 
 triggers:
   use_when:
     - "用户要求公众号排版、微信排版、gzh-format 或把 Markdown/OB 长文转公众号 HTML。"
+    - "用户要求把 AI 日报公众号正文按固定日报模式排版。"
     - "用户要求查看、维护或生成公众号排版主题。"
+    - "用户要求在排版预览直接改字、删除或切换红色/粗体,并保存人工修订。"
   do_not_use_when:
     - "用户要求 Pudding/H5 或其它平台排版。"
     - "用户要求创建公众号草稿、发布、群发或 freepublish。"
-    - "用户要求写稿、改写事实或生成正文内容。"
+    - "用户要求由 Agent 写稿、改写事实或生成正文内容;作者在预览中的明确人工修订除外。"
 
 inputs:
   - name: markdown_file
@@ -32,10 +36,41 @@ inputs:
     default: minimal
     values: [minimal, red, green]
     description: "默认简约。当前确定性 renderer 仅支持 minimal;red/green 为组件库模式。"
+  - name: content_mode
+    type: enum
+    required: false
+    default: default
+    values: [default, ai-daily]
+    description: "内容骨架与专属语义模式;AI 日报公众号正文可由 frontmatter 或文件名自动识别。"
   - name: output_html
     type: path
     required: false
     description: "生成的公众号 HTML 片段路径。"
+  - name: semantic_anchor_staging
+    type: markdown
+    required: false
+    description: "skill 编排层生成的临时工作副本;只用 <mark data-gzh=\"semantic-anchor\"> 包裹长普通正文中的原文连续短语,不修改用户原稿。"
+  - name: editable_preview
+    type: boolean
+    required: false
+    default: true
+    description: "minimal HTML 与实际 Markdown 可确定性对应时默认开启编辑并启动本机保存服务,无需作者另提编辑要求;显式只读、非支持主题或无法映射时说明并只读交付。"
+  - name: source_md
+    type: path
+    required: false
+    description: "--editable 必填;实际渲染来源,也是真正保存时的 Markdown 回填目标。"
+  - name: edit_manifest
+    type: path
+    required: false
+    description: "可信本地来源基线,默认 <HTMLstem>.gzh-edit-manifest.json。"
+  - name: edit_package
+    type: path
+    required: false
+    description: "内部 HTTP 传输和旧 .gzh-edit.json 兼容数据;普通作者无需导出/导入,不接受包内写入路径或执行 HTML。"
+  - name: sync_writeback_backup
+    type: path
+    required: false
+    description: "仅同步成功后的元数据基线登记使用;必须是该次写回前的源文备份,其 SHA 恰等 manifest 旧 source_sha256。"
 
 outputs:
   - name: wechat_html
@@ -45,11 +80,31 @@ outputs:
   - name: preview_html
     type: file
     required: false
-    description: "带复制按钮的本地预览页;按钮和脚本不进入正文产物。"
+    description: "默认以390 CSS px手机阅读宽度显示、窄窗口自适应的本地预览页，直接在同一正文编辑;带标题框、复制按钮及可选编辑器，标题与正文一起保存。外壳和编辑标识不进入正文产物或复制正文。"
   - name: validation_report
     type: text
     required: true
     description: "validate_gzh_html.py 输出的公众号兼容性报告。"
+  - name: edit_manifest
+    type: file
+    required: false
+    description: "gzh-edit-manifest/v1:来源/preview_file 路径与 MD/HTML 哈希、article_id、revision、status、title及标题可编辑原因、受控块、H2 序号字段、图片/H3 数量保护项、已导入包指纹。"
+  - name: edit_package
+    type: file
+    required: false
+    description: "gzh-edit/v1 内部事务记录:可选纯文字title、文字、H2 序号、独立 red/bold、基线与保护项;旧包无title或number时保留当前值,只用于传输/归档/旧包兼容,不是用户保存步骤。"
+  - name: edit_save_report
+    type: json
+    required: false
+    description: "服务真实提交后返回 saved/幂等结果及新会话基线,失败保留页面未保存状态;兼容 CLI 仍提供 dry-run changes 与备份/修订回执。"
+  - name: preview_service_ready
+    type: json
+    required: false
+    description: "stdout 首行本机 URL;可选新建 0600 ready-file 包含 url/origin/pid,不包含显式 token。"
+  - name: edit_preflight_report
+    type: json
+    required: false
+    description: "常规预检返回 manifest_file、saved 状态、article_id、revision、source_md、html_file 与 MD/HTML 哈希;元数据登记另返回 metadata_refreshed,不提升人工 revision。"
 
 stops:
   - name: missing_input
@@ -62,12 +117,24 @@ stops:
     condition: "validate_gzh_html.py 报 ERROR。"
   - name: non_markdown_input_needs_normalization
     condition: "输入为 docx/pdf/富文本等非 Markdown,需先归一并确认结构。"
+  - name: raw_daily_requires_prepared_body
+    condition: "输入为 YYYYMMDD-AI日报.md 原始链接目录,尚未准备独立公众号正文。"
+  - name: invalid_ai_daily_contract
+    condition: "AI 日报公众号正文不满足两段开篇、4-6 个正文章节、末尾参考资料或媒体安全门禁。"
+  - name: invalid_author_footer_contract
+    condition: "作者页尾标记缺少结束标记、重复出现、内部不是一个自然段,或文案未以“艾笑：”开头。"
+  - name: unmappable_edit_source
+    condition: "minimal 重渲染不等于当前正文、manifest 绑定其它来源,或没有可可靠回填的文字块。"
+  - name: edit_conflict_or_unsafe_package
+    condition: "来源漂移、基线身份/修订不符、未知字段/结构、危险或变更链接、图片集合/顺序或 H3 数量变化;H2/H3 序号文字变化允许回填,其它验证失败零写入。"
+  - name: unsaved_or_pending_edits
+    condition: "同步前 manifest 不是 saved、MD/HTML 哈希漂移、页面仍有未保存修改,或有待处理旧兼容包。"
 
 delegates:
   - name: wechat-draft-sync
     kind: skill
     when: "用户明确要求把已校验 HTML 创建到微信公众号草稿箱。"
-    note: "凭证 doctor、配置读取、图片上传和微信 API 调用全部由该独立能力承担。"
+    note: "保存不授权微信写入。确认页面最新改稿已保存,预检并交付绑定的 MD/HTML 与 manifest,沿用独立能力的作者确认、三方比较、凭证与 API 边界;不提供线上自动合并。"
   - name: scripts/render_markdown.py
     kind: cli
     when: "使用默认 minimal 主题确定性渲染 Markdown。"
@@ -79,7 +146,102 @@ delegates:
     when: "生成 HTML 后检查公众号兼容性。"
   - name: scripts/wrap_preview.py
     kind: cli
-    when: "生成本地复制预览页。"
+    when: "生成本地复制预览页或绑定来源的可编辑预览。"
+  - name: scripts/import_edit.py
+    kind: cli
+    when: "仅旧修改包兼容:默认 dry-run,显式 --apply 才回填;不作为普通编辑主流程。"
+  - name: scripts/serve_preview.py
+    kind: cli
+    when: "启动绑定单篇文章的本机服务,通过页面保存草稿按钮直接提交共享修订事务。"
+  - name: scripts/preflight_edit.py
+    kind: cli
+    when: "同步前验证 saved、哈希与旧兼容包;成功写回后以写前备份验证并登记白名单元数据。"
+
+manual_revision:
+  article_title:
+    source_priority: [frontmatter_title, first_body_h1, markdown_filename]
+    copy_scope: separate_from_body
+    operations: [edit_plain_text, copy_title, save, undo, redo]
+    persistence: "同一保存事务写title并同步已有唯一H1，无H1不新增；仅改标题不重排正文HTML、不改文件名。"
+    legacy_package: "title可选；缺失时保持当前题，不能退回会话初始题。"
+    unsupported_yaml: "复杂或多行、带引号键、重复title、未闭合frontmatter、多个H1及H1含内联注释时标题只读，展示原因；正文仍可编辑。"
+  default_delivery: "minimal 确定性排版默认 wrap --editable + serve_preview,交付可编辑且可保存的本机 URL;不得只给静态 copy 页。"
+  readonly_delivery: "作者明确只读,或非支持主题/无法可靠映射时说明编辑范围后交付只读页。"
+  supported_theme: minimal
+  supported_blocks: [paragraph, h2, h3, quote, list, micro]
+  readonly_blocks: [wikilinks_or_embedded_media, code, table, author_footer, auto_question_or_example_group, unmappable]
+  list_scope: explicit_markdown_list_items_only
+  operations: [edit_text, delete_text, red_on, red_off, bold_on, bold_off, undo, redo]
+  independent_styles: [red, bold]
+  internal_package_schema: gzh-edit/v1
+  manifest_schema: gzh-edit-manifest/v1
+  source_marker: "<!-- gzh-manual-revision:v1 -->"
+  inline_marker: '<span data-gzh="manual-style" data-red="0|1" data-bold="0|1">文字</span>'
+  authority: "作者保存的文字、删除和显式样式优先;后续不得补语义锚点、补红、恢复已删除内容或把红色和粗体联动。"
+  initial_anchor_gate_only: true
+  html_copy_excludes_editor: true
+  persistence:
+    browser_local_storage: false
+    export_is_save: false
+    user_action: "点击本机服务页的保存草稿;无导出/另存按钮。"
+    file_protocol: "无同源保存服务,保存按钮禁用并提示从本机服务打开。"
+    legacy_import_default: dry-run
+    legacy_import_write_flag: --apply
+    source_paths_from: local_manifest_only
+    idempotency: canonical_package_sha256
+    idempotency_scopes:
+      legacy_import: "整包 canonical JSON SHA256,包含 saved_at,指纹记入 manifest.imported_packages。"
+      edit_session: "同一 EditSession 对排除 saved_at 的提交身份计算 canonical JSON SHA256;相同提交重试返回当前已确认修订。"
+      conflict_boundary: "重试先校验当前磁盘基线;不放宽其他会话/多页面的旧修订冲突。"
+    saved_status: saved
+    dry_run_changes: [id, kind, before_text, after_text, before_runs, after_runs]
+    backup_path: "<HTMLdir>/.gzh-edits/<article_id>/rNNNN-<8hex>/"
+    backup_files: [source.md, body.html, manifest.json, package.gzh-edit.json, saved.md, saved.html]
+    refreshed_preview: "manifest.preview_file;首次省略时为 <HTMLstem>_预览.html,已绑定后省略复用"
+    path_aliases: "源 MD、正文 HTML、manifest、预览不得互相别名,含 symlink。"
+    write_lock: "<manifest路径>.lock;崩溃遗留锁先确认进程停止再人工处理,不自动删除"
+    failed_attempt: "保留 failed.txt 与归档,尝试恢复 MD/HTML/manifest/绑定预览,以预检核实状态。"
+    preserve_source_newlines: true
+    undo_history: "保存不清当前页历史,撤销/重做后可保存新修订;关页重开不保留历史,仅恢复磁盘稿。"
+    in_flight_save: "保存请求提交时的快照才标 saved;期间继续输入仍 dirty,需再次保存。"
+    service_shutdown: "停止服务不删除磁盘稿;未保存页面修改不能冒充 saved。"
+  local_service:
+    host: "127.0.0.1"
+    default_port: 0
+    article_scope: one_manifest_bound_article
+    request_policy: exact_host_origin_and_session_token
+    source_paths_from_http: false
+    session_token_in_manifest_or_article_body: false
+    ready_file: "新建0600文件,url/origin/pid;不覆盖已有文件。"
+    url: "stdout首行随机能力URL,作为本机资源保管。"
+    conflict: "反向同步/其它会话造成来源漂移时拒绝保存,核对当前来源后重开服务;不绕过冲突。"
+    unconfirmed_save: "失败保留页面并可重试,不把未确认状态当成功。"
+  protected: [image_urls_and_order, h3_count]
+  sync_preflight:
+    required_status: saved
+    verify: [source_sha256, html_sha256, unimported_packages]
+    automatic_package_scope: "manifest 同目录 *.gzh-edit.json"
+    explicit_package_flag: "--pending-package;可重复指定"
+    author_confirmation: "页面最新改稿已保存且无 dirty;磁盘预检无法观察浏览器新输入,旧兼容包另按已知路径检查。"
+    online_merge: "沿用上游三方比较合同,无新增自动合并程序。"
+    output_manifest_path: manifest_file
+  sync_metadata_refresh:
+    trigger: successful_wechat_frontmatter_writeback_only
+    backup_flag: --refresh-metadata-from
+    expected_identity_flags: ["--expected-revision", "--expected-source-sha256", "--expected-html-sha256"]
+    expected_identity_source: "实际发送请求之前的预检计划；不得取发送后的新 manifest 值。"
+    default: validate_only
+    write_flag: --apply
+    allowed_fields: [digest, wechat_draft_media_id, wechat_draft_synced_at, wechat_draft_status, wechat_draft_title, wechat_thumb_media_id]
+    conditions:
+      - "必须绑定发送前 revision、source_sha256、html_sha256；复杂多行引号/flow/tag/anchor 元数据停止自动登记。"
+      - "已保存人工修订,备份 SHA 恰等 manifest 旧 source_sha256。"
+      - "当前正文 HTML 哈希不变,完整 frontmatter 之外正文及非白名单元数据完全相同。"
+    updates: [source_sha256, source_map, bound_preview, sync_metadata_refreshed_at]
+    preserve: [revision, imported_packages, saved_at, source_md, html_file]
+    cli: "成功 writeback 后自动调用共享命令。"
+    mcp: "成功回写后由编排复用共享命令,不新增 MCP 参数或工具。"
+    failure: "拒绝绕过正文冲突的重基线;若草稿已创建,保留 ID 与备份并处理冲突,不得再次 create。"
 
 credentials:
   mode: none
@@ -90,7 +252,8 @@ credentials:
 
 network:
   required: false
-  allowed_hosts: []
+  allowed_hosts: ["127.0.0.1"]
+  note: "直接保存只用本机同源 HTTP,不外联、不调用微信。纯排版/校验无需服务。"
 
 forbidden:
   - read_wechat_appsecret_or_access_token
@@ -100,14 +263,33 @@ forbidden:
   - publish_or_freepublish_wechat_article
   - support_non_wechat_render_targets
   - rewrite_article_facts_or_add_unrequested_summary
+  - infer_or_replace_keywords_in_final_html
+  - nest_semantic_anchor_with_existing_inline_markup
   - output_html_head_body_or_script_in_wechat_content
   - mix_components_from_multiple_themes_in_one_article
   - hardcode_user_absolute_paths_in_skill_docs
+  - treat_browser_export_or_local_storage_as_saved_source
+  - silently_rebase_edit_package_on_changed_source
+  - reapply_automatic_highlights_over_manual_revision
+  - treat_local_save_as_wechat_sync_authorization
+  - rebase_body_or_unapproved_metadata_via_sync_metadata_refresh
+  - claim_file_protocol_or_browser_memory_as_successful_disk_save
+  - clear_current_page_undo_history_after_save
+  - expose_multi_article_or_arbitrary_file_save_api
 
 state:
   files:
     - name: theme_index
       path: references/theme-index.md
+      required: true
+    - name: mode_index
+      path: references/mode-index.md
+      required: true
+    - name: ai_daily_mode
+      path: modes/ai-daily/mode.md
+      required: true
+    - name: ai_daily_template
+      path: modes/ai-daily/template.md
       required: true
     - name: minimal_components
       path: themes/minimal/components.md
@@ -115,21 +297,97 @@ state:
     - name: shared_components
       path: themes/_shared/common-components.md
       required: true
+    - name: editable_preview_contract
+      path: references/editable-preview.md
+      required: true
   runtime_outputs:
     - path: "${system_temp}/gzh-format-regression-*"
       description: "回归脚本使用 Python tempfile 选择系统临时目录;不得作为持久状态依赖。"
+    - path: "<HTMLstem>.gzh-edit-manifest.json"
+      description: "本地来源与修订事实;不包含凭证。"
+    - path: "<HTMLdir>/.gzh-edits/<article_id>/rNNNN-<8hex>/"
+      description: "每次实际修订的原稿/正文/基线/内部事务包与保存后副本;不自动清理或回滚。"
+    - path: "<caller-provided-new-ready-file>"
+      description: "可选本机服务就绪JSON,0600,含url/origin/pid;不覆盖既有文件。"
 
 scripts:
   - path: scripts/render_markdown.py
     deterministic: true
     supports_themes: [minimal]
+    supports_modes: [default, ai-daily]
+    semantic_anchor_contract:
+      marker: '<mark data-gzh="semantic-anchor">原文短语</mark>'
+      eligible_paragraph: "visible_characters >= 60 且存在可选原文短语的普通正文段落"
+      required_long_paragraph: "visible_characters >= 120 的每个普通正文段落"
+      section_scope: "首个 H2 前的序言 + 每个 H2 一级章节"
+      section_min_anchors: 1
+      section_complex_recommended_max: 3
+      phrase_visible_characters: [4, 18]
+      per_paragraph: [1, 2]
+      paragraph_ratio_max: 0.16
+      document_count_max: null
+      document_ratio_max: 0.08
+      coverage_gate_flag: "--require-semantic-anchors"
+      output: '<strong style="color:#DC2626;font-weight:800;"><span leaf="">原文短语</span></strong>'
+      manual_revision_priority: "人工修订标记关闭初排覆盖率补红,manual-style 精确保持 red/bold 独立状态。"
+    author_footer_contract:
+      start_marker: "<!-- gzh-author-footer:start -->"
+      end_marker: "<!-- gzh-author-footer:end -->"
+      count_max: 1
+      paragraph_count: 1
+      required_prefix: "艾笑："
+      visual_end_generated_by_renderer: true
+      end_divider_line_text: "────────"
+      decorative_empty_nodes_allowed: false
+      horizontal_outer_margin: 0
+      content_horizontal_padding: "8px"
+      aligns_with_body_paragraphs: true
+      bio_emphasis:
+        text: "让 AI 好好干活，让我们好好生活。"
+        background: "#c7254e"
+        color: "#ffffff"
+        font_weight: 700
+        padding: "1px 4px"
+        retired_trailing_text: "一起吧。"
+      fixed_actions:
+        - "点击查看：成为 AI Native 的进阶地图"
+        - "私信发送：公众号主页私信“联系我”，更多资料、深度链接交流、一起玩。"
+      roadmap:
+        url: "https://mp.weixin.qq.com/s?__biz=MzkxMTc0MjQ2MA%3D%3D&mid=2247484737&idx=1&sn=8b1ea66df383ce5da4952f906e3ae120"
+        color: "#c7254e"
+        font_weight: 700
+        underline: "1px solid #c7254e"
+      roadmap_link_policy: "使用已核验的公众号文章主链接，不固化 scene/token/lang/poc_token 等临时追踪参数。"
     required_flags: ["--theme"]
+    optional_flags: ["--mode"]
   - path: scripts/component_lint.py
     deterministic: true
   - path: scripts/validate_gzh_html.py
     deterministic: true
   - path: scripts/wrap_preview.py
     deterministic: true
+    positional_args: [source_html, optional_preview_html]
+    optional_flags: ["--editable", "--source-md", "--manifest"]
+  - path: scripts/edit_model.py
+    deterministic: true
+    description: "source-map、compose_package/commit_revision 共享事务、EditSession稳定块身份、快照与冲突保护。"
+  - path: scripts/article_title.py
+    deterministic: true
+    description: "独立纯文字标题的来源优先级、受控title/H1回填和复杂YAML只读边界。"
+  - path: scripts/serve_preview.py
+    deterministic: false
+    required_flags: ["--manifest"]
+    optional_flags: ["--port", "--ready-file"]
+    note: "随机端口与会话能力,只监听127.0.0.1,页面保存复用确定性共享事务。"
+  - path: scripts/import_edit.py
+    deterministic: true
+    positional_args: [edit_package]
+    required_flags: ["--manifest"]
+    optional_flags: ["--apply"]
+  - path: scripts/preflight_edit.py
+    deterministic: true
+    required_flags: ["--manifest"]
+    optional_flags: ["--pending-package", "--refresh-metadata-from", "--apply", "--expected-revision", "--expected-source-sha256", "--expected-html-sha256"]
   - path: scripts/regression.py
     deterministic: true
   - path: scripts/release_check.py
@@ -137,14 +395,35 @@ scripts:
 
 tests:
   regression_cases:
+    - "tests/test_article_title.py:标题来源、纯标题保存不重排、title/H1一致、旧包、复杂YAML拒绝与保存后撤销重开"
     - assets/sample-article.md
     - tests/fixtures/stress-markdown.md
+    - tests/fixtures/ai-daily-markdown.md
+    - tests/fixtures/semantic-highlights-markdown.md
+    - tests/fixtures/author-footer-markdown.md
+    - "semantic anchors in short/non-paragraph/protected inline content are rejected"
+    - "author footer with a missing end marker or multiple paragraphs is rejected"
+    - "raw YYYYMMDD-AI日报.md is rejected"
     - "legacy --target pudding is rejected"
+    - "tests/test_editable_render.py:H2/H3 序号编辑、source-map、显式人工样式与初排锚点门禁"
+    - "tests/test_editable_preview.py:独立夹具删除与样式回填、dry-run、幂等、16 图/11 H3 保真、漂移与待导入包保护"
+    - "successful sync metadata writeback refreshes source mapping/hash without increasing manual revision; body drift still rejects refresh"
+    - "tests/test_editor_dom.cjs:真实DOM选区、保存按钮、保存后撤销重做、在途新输入dirty、file协议禁假保存、复制外壳隔离"
+    - "tests/test_edit_session.py:稳定块身份支持删段后保存、撤销恢复并再次保存;来源漂移拒绝覆盖"
+    - "tests/test_save_service.py:单文章loopback服务、同源/会话校验、直接保存及越权或漂移拒绝"
+    - "tests/test_editable_e2e.cjs:1100/390/320px窗口下默认手机宽度、标题与正文直接编辑、真实HTTP保存、撤销重做与reload保真；只读预览同宽且复制正文不变"
   commands:
     - "python3 scripts/component_lint.py ."
     - "python3 scripts/regression.py"
     - "python3 scripts/release_check.py"
-    - "skillhub doctor-skill skills/gzh-format --profile commercial"
+    - "python3 -m unittest discover -s tests -p 'test_*.py' -v"
+    - "node --test tests/test_editor_dom.cjs tests/test_editable_e2e.cjs"
+  browser_environment:
+    module: playwright
+    requirement: "执行命令的 Node 必须能解析 playwright,且有可用 Chromium/Chrome。"
+    existing_dependencies: '可在命令前设置 NODE_PATH="<已有 node_modules 目录>";不硬编码本机路径。'
+    existing_browser: '可用 GZH_TEST_BROWSER="<浏览器可执行文件>" 指定,否则由 Playwright 查找其 Chromium。'
+    missing_dependency: environment_not_ready_not_a_test_result
 
 evaluation:
   score_scope: structural_readiness
@@ -168,6 +447,8 @@ evaluation:
     - wechat_html_validation
     - preview_shell_isolation
     - unsupported_target_rejection
+    - manual_edit_roundtrip_and_conflict_protection
+    - independent_red_and_bold_selection_controls
   evidence:
     baseline:
       description: "旧的仓库根 Skill 结构只安装 SKILL.md,无法运行回归。"
@@ -181,15 +462,27 @@ evaluation:
     behavioral_results:
       summary: tests/evaluation/2026-07-11-install-and-render-results.md
       status: documented_not_machine_certified
+      scope: historical_installation_and_rendering_baseline_only
       note: "人读安装与渲染记录不是 skillhub JSON behavior report;只声明证据存在,不宣称 utility 已认证。"
-    independent_review: false
+    editable_preview:
+      artifact: tests/evaluation/2026-10-24-editable-preview.md
+      scope: independent_fixtures_and_local_http_browser_save
+      status: fixture_validated_not_real_article_or_wechat
+      code_review: independent_agent_passed
+      versions: ["Content-factory v0.30.3 local_unreleased", "gzh-format 0.6.3 local_unreleased"]
+      note: "本轮编辑/保存证据独立于旧安装评分;真实文章、微信端与实际效用未验证。"
+    independent_review: true
+    independent_review_scope: editable_preview_local_code_and_safety_only
+    independent_review_evidence: tests/evaluation/2026-10-24-editable-preview.md
 
 review:
   lint:
-    command: "skillhub lint-skill skills/gzh-format"
+    command: "python3 scripts/release_check.py --static-only"
   doctor:
-    command: "skillhub doctor-skill skills/gzh-format --profile commercial"
+    command: "python3 scripts/release_check.py"
   notes:
+    - "review.lint 仅静态分发检查;review.doctor 为完整离线门禁,包含共享 Python/HTTP 回归,不是 SkillHub 认证。浏览器 DOM/E2E 按 tests.commands 另跑。"
+    - "当前本机 SkillHub 不提供旧 lint-skill/doctor-skill;可选 doctor --project 仅巡检项目入口,不作本 Skill 通过门禁。"
     - "排版链路必须在未配置任何 WECHAT_* 环境变量时完整通过。"
     - "AppID/AppSecret 配置只属于独立 wechat-draft-sync,不得复制进本仓库。"
     - "新增 red/green renderer adapter 前,不要承诺命令行自动渲染这些主题。"

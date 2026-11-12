@@ -14,17 +14,31 @@
   .gzh-copy:active{transform:translateY(1px);}
   .gzh-toast{position:fixed;top:66px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .25s;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:88vw;text-align:center;}
   .gzh-toast.show{opacity:1;}
-  .gzh-stage{max-width:700px;margin:78px auto 64px;padding:0 8px;}
-  @media(max-width:520px){.gzh-hint{max-width:150px;}}
+  /* 默认以手机阅读宽度换行，直接编辑同一份正文；窄窗口随屏收缩，不缩放字号。 */
+  .gzh-stage{box-sizing:border-box;width:100%;max-width:390px;margin:78px auto 64px;padding:0;}
+  .gzh-title-panel{background:#fff;border-radius:10px;padding:22px 24px;margin-bottom:16px;}
+  .gzh-title-label{display:block;font-size:13px;color:#6b7280;margin-bottom:10px;}
+  #gzh-title{box-sizing:border-box;width:100%;border:1px solid #d1d5db;border-radius:6px;padding:12px;font-family:inherit;font-size:24px;font-weight:600;line-height:1.5;color:#111827;background:#fff;}
+  #gzh-title:focus{outline:2px solid #059669;outline-offset:2px;}
+  #gzh-title[readonly]{border-color:transparent;cursor:text;}
+  #gzh-title-warning:empty{display:none;}
+  @media(max-width:520px){.gzh-toolbar{padding:0 12px;gap:8px;}.gzh-hint{flex:1;min-width:0;font-size:12px;}.gzh-copy{padding:10px 12px;}}
 </style>
+<!--GZH_EDIT_CSS-->
 </head>
 <body>
 <div class="gzh-toolbar">
-  <span class="gzh-hint">👇 下方是排版效果 · 点右侧 <b>复制</b> 直接粘到公众号</span>
+  <span class="gzh-hint"><b>手机预览</b> · 右侧复制到公众号</span>
   <button class="gzh-copy" id="gzhCopyBtn" onclick="gzhCopy()">📋 复制到公众号</button>
 </div>
+<div id="gzh-editor-toolbar"></div>
 <div class="gzh-toast" id="gzhToast"></div>
 <div class="gzh-stage">
+  <div class="gzh-title-panel">
+    <label class="gzh-title-label" for="gzh-title">文章标题</label>
+    <input id="gzh-title" type="text" value="{{TITLE}}"{{TITLE_READONLY}} aria-describedby="gzh-title-warning">
+    <p id="gzh-title-warning">{{TITLE_WARNING}}</p>
+  </div>
   <div id="gzh-content">
 <!--GZH_CONTENT-->
   </div>
@@ -38,6 +52,22 @@
   }
   function gzhCopy(){
     var el=document.getElementById('gzh-content');
+    // 在副本上清理编辑器属性；自定义 copy 数据只含正文。
+    var clone=el.cloneNode(true);
+    clone.querySelectorAll('[data-gzh-edit-empty="1"]').forEach(function(node){node.remove();});
+    clone.querySelectorAll('*').forEach(function(node){
+      Array.from(node.attributes).forEach(function(attr){
+        if(attr.name==='contenteditable'||attr.name==='spellcheck'||attr.name==='tabindex'||attr.name.startsWith('data-gzh-edit')||attr.name.startsWith('data-gzh-run'))node.removeAttribute(attr.name);
+      });
+    });
+    var onCopy=function(event){
+      if(event.clipboardData){
+        event.clipboardData.setData('text/html',clone.innerHTML);
+        event.clipboardData.setData('text/plain',clone.textContent);
+        event.preventDefault();
+      }
+    };
+    document.addEventListener('copy',onCopy,{once:true});
     // 选中渲染后的富文本节点并复制（等价于手动 Ctrl+A / Ctrl+C，保留全部样式）
     var range=document.createRange();
     range.selectNodeContents(el);
@@ -46,6 +76,7 @@
     sel.addRange(range);
     var ok=false;
     try{ok=document.execCommand('copy');}catch(e){ok=false;}
+    document.removeEventListener('copy',onCopy);
     sel.removeAllRanges();
     var btn=document.getElementById('gzhCopyBtn');
     if(ok){
@@ -57,5 +88,6 @@
     }
   }
 </script>
+<!--GZH_EDIT_SCRIPT-->
 </body>
 </html>

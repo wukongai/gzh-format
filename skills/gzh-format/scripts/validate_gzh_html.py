@@ -48,6 +48,10 @@ HALF_PUNCT = re.compile(r"[一-鿿㐀-䶿][,;!?]")
 ASCII_QUOTE = re.compile(r"[\"']")
 # 代码区特征：等宽字体或 white-space:pre —— 其内半角符号是正常的
 CODE_STYLE = re.compile(r"monospace|white-space\s*:\s*pre|courier|consolas|sf mono", re.I)
+FONT_SIZE = re.compile(r"font-size\s*:\s*(\d+(?:\.\d+)?)px")
+# display 级字号（章节序号等大标题字）阈值：达到该字号的 leaf span 必须
+# 在块级父元素上重复同一 font-size，否则微信草稿编辑器重建块结构后字号会丢
+DISPLAY_FONT_MIN_PX = 40
 
 
 class LeafChecker(HTMLParser):
@@ -55,28 +59,39 @@ class LeafChecker(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack = []           # [(tag, is_leaf, is_code)]
+        self.stack = []           # [(tag, is_leaf, is_code, style)]
         self.leaf_depth = 0       # 处于 span[leaf] 内的嵌套计数
         self.code_depth = 0       # 处于代码区（等宽/pre）内的嵌套计数
         self.span_leaf_count = 0  # 全文 span leaf 总数
         self.unwrapped = []       # (文本片段, 父标签) —— 未被 leaf 包裹的中文文本
         self.half_punct = []      # 正文里疑似半角标点的片段
+        self.display_font_issues = []  # display 级字号未在块级父元素上重复的 leaf span
 
     def handle_starttag(self, tag, attrs):
         ad = dict(attrs)
+        style = ad.get("style", "") or ""
         is_leaf = tag == "span" and "leaf" in ad
-        is_code = bool(CODE_STYLE.search(ad.get("style", "") or ""))
+        is_code = bool(CODE_STYLE.search(style))
         if is_leaf:
             self.span_leaf_count += 1
             self.leaf_depth += 1
+            m = FONT_SIZE.search(style)
+            if m and float(m.group(1)) >= DISPLAY_FONT_MIN_PX:
+                size = m.group(1)
+                marker = f"font-size:{size}px"
+                if not any(
+                    t in ("p", "section") and marker in (s or "").replace(" ", "")
+                    for t, _, _, s in self.stack
+                ):
+                    self.display_font_issues.append(size)
         if is_code:
             self.code_depth += 1
-        self.stack.append((tag, is_leaf, is_code))
+        self.stack.append((tag, is_leaf, is_code, style))
 
     def handle_endtag(self, tag):
         for i in range(len(self.stack) - 1, -1, -1):
             if self.stack[i][0] == tag:
-                for _, was_leaf, was_code in self.stack[i:]:
+                for _, was_leaf, was_code, _ in self.stack[i:]:
                     if was_leaf:
                         self.leaf_depth -= 1
                     if was_code:
@@ -88,7 +103,7 @@ class LeafChecker(HTMLParser):
         text = data.strip()
         if not text or not CJK.search(text):
             return
-        if any(t in SKIP_TAGS for t, _, _ in self.stack):
+        if any(t in SKIP_TAGS for t, _, _, _ in self.stack):
             return  # <head>/<title>/<style>/<script> 内文字不进公众号正文
         if self.leaf_depth == 0:
             parent = self.stack[-1][0] if self.stack else "(root)"
@@ -125,6 +140,14 @@ def validate(html, name="<input>"):
         warnings.append(
             f"{len(checker.unwrapped)} 处中文文本未被 <span leaf> 包裹，"
             f"样式可能丢失。例：{sample}")
+
+    if checker.display_font_issues:
+        sizes = "、".join(f"{s}px" for s in checker.display_font_issues[:5])
+        errors.append(
+            f"{len(checker.display_font_issues)} 处 display 级字号（{sizes}）只写在 "
+            "span[leaf] 上，其块级父元素（<p>/<section>）未重复同一 font-size——"
+            "微信草稿编辑器重建块结构后字号会丢，请改用带完整字体样式的 <p> 包裹"
+            "（见 themes/minimal/components.md 组件 3）")
 
     if checker.half_punct:
         sample = "；".join(f"「{s}」" for s in checker.half_punct[:5])

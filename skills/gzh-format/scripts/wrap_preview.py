@@ -13,35 +13,91 @@ validate_gzh_html.py（本预览页含 script/style，不参与校验）。
     默认输出 <section去扩展名>_预览.html
 """
 
-import os
-import sys
+import argparse
+import html
+import json
+import re
+from pathlib import Path
 
 from _stdio import configure_utf8_stdio
 
 configure_utf8_stdio()
 
 
+def render_preview(content, title, manifest=None, save_bridge=None):
+    """脚本和编辑标识仅进入预览外壳，JSON 用转义避免闭合 script。"""
+    assets = Path(__file__).resolve().parents[1] / 'assets'
+    tpl = (assets / 'preview-template.html').read_text(encoding='utf-8')
+    css, script = '', ''
+    readonly = ' readonly'
+    title_warning = ''
+    if manifest is not None:
+        from edit_model import editable_body, public_package
+        content = editable_body(content, manifest)
+        metadata = public_package(manifest)
+        title = metadata['title']
+        readonly = '' if manifest.get('title_editable', True) else ' readonly'
+        title_warning = manifest.get('title_warning', '')
+        if save_bridge is not None:
+            metadata['save_bridge'] = save_bridge
+        data = json.dumps(metadata, ensure_ascii=False).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+        css = '<style>' + (assets / 'editor.css').read_text(encoding='utf-8') + '</style>'
+        script = '<script id="gzh-edit-data" type="application/json">' + data + '</script>\n<script>' + (assets / 'editor.js').read_text(encoding='utf-8') + '</script>'
+    replacements = {'{{TITLE}}': html.escape(title, quote=True),
+                    '{{TITLE_READONLY}}': readonly, '{{TITLE_WARNING}}': html.escape(title_warning),
+                    '<!--GZH_CONTENT-->': content, '<!--GZH_EDIT_CSS-->': css, '<!--GZH_EDIT_SCRIPT-->': script}
+    # 单次替换模板标记，作者标题里的教学占位符不再被解释为模板指令。
+    pattern = '|'.join(re.escape(token) for token in replacements)
+    return re.sub(pattern, lambda match: replacements[match.group()], tpl)
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("用法: wrap_preview.py <section.html> [output.html]")
-        sys.exit(1)
-    src = sys.argv[1]
-    if not os.path.isfile(src):
-        print(f"✗ 找不到文件: {src}")
-        sys.exit(1)
-
-    content = open(src, encoding="utf-8").read().strip()
-    tpl_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "..", "assets", "preview-template.html")
-    tpl = open(tpl_path, encoding="utf-8").read()
-
-    title = os.path.splitext(os.path.basename(src))[0]
-    out_html = tpl.replace("{{TITLE}}", title).replace("<!--GZH_CONTENT-->", content)
-
-    out = sys.argv[2] if len(sys.argv) > 2 else os.path.splitext(src)[0] + "_预览.html"
-    open(out, "w", encoding="utf-8").write(out_html)
-    print(f"✓ 已生成带「复制」按钮的预览页: {out}")
-    print("  用浏览器打开它，点右上角「复制到公众号」，再去公众号编辑器 Ctrl/⌘+V 粘贴。")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('source', help='已经校验的公众号正文 HTML')
+    parser.add_argument('output', nargs='?', help='预览路径，默认 <stem>_预览.html')
+    parser.add_argument('--editable', action='store_true', help='生成可编辑预览与基线 manifest')
+    parser.add_argument('--source-md', help='产生正文 HTML 的实际 Markdown 工作副本')
+    parser.add_argument('--manifest', help='本地来源 manifest，默认正文同目录同名前缀')
+    args = parser.parse_args()
+    src = Path(args.source).resolve()
+    out = Path(args.output).resolve() if args.output else src.with_name(src.stem + '_预览.html')
+    if args.editable and not args.source_md:
+        parser.error('--editable 必须指定 --source-md，不能猜测源文')
+    content = src.read_text(encoding='utf-8')
+    manifest = None
+    if args.editable:
+        from edit_model import build_manifest, default_manifest, load_manifest, atomic_write
+        path = Path(args.manifest).resolve() if args.manifest else default_manifest(src)
+        protected = {src, Path(args.source_md).resolve(), path}
+        if len(protected) != 3 or out in protected:
+            parser.error('源 Markdown、正文 HTML、manifest、预览输出路径必须互异，禁止软链别名覆盖')
+        if path.exists():
+            manifest = load_manifest(path)
+            if Path(manifest['source_md']) != Path(args.source_md).resolve() or Path(manifest['html_file']) != src:
+                parser.error('manifest 已绑定其它源文件，拒绝覆盖')
+        else:
+            manifest = build_manifest(args.source_md, src)
+        if not args.output and path.exists():
+            out = Path(manifest['preview_file'])
+        if path.exists() and Path(manifest['preview_file']) != out:
+            parser.error('manifest 已绑定另一预览输出路径；请复用已绑定路径')
+        manifest['preview_file'] = str(out)
+        preview = render_preview(content, src.stem, manifest)
+        atomic_write(path, json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+        print(f'编辑基线：{path}')
+    else:
+        title = src.stem
+        if args.source_md:
+            from article_title import title_info
+            from edit_model import read_exact
+            title = title_info(read_exact(args.source_md), args.source_md)['title']
+        preview = render_preview(content, title)
+    if out == src:
+        parser.error('预览输出不能覆盖正文 HTML')
+    out.write_text(preview, encoding='utf-8')
+    print(f'✓ 已生成预览页：{out}')
+    if args.editable:
+        print('要直接保存草稿，请用 serve_preview.py --manifest <上述基线> 打开本地保存页面。')
 
 
 if __name__ == "__main__":

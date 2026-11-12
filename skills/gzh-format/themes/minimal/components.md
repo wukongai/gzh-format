@@ -30,6 +30,7 @@
 浅橄榄灰背景：                   #eeefe9
 标签浅底：                     #e5e7e0
 强调橙（显式下划线/前导词/CTA）： #ed7b2f
+固定关注语红（账号级固定强调）：     #DC2626
 陶土棕装饰（进行中/次强调）：       #d4c9b8（配边框 #b17816）
 正文字号：                     15px
 正文行高：                     1.9
@@ -44,6 +45,10 @@
 字体栈：`'IBM Plex Sans',-apple-system,system-ui,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif`
 
 **显式下划线**：默认不主动给正文关键词加下划线。只有源文显式使用 `<u>` / `++...++` 时,才用 `border-bottom:2px solid #ed7b2f;font-weight:600;color:#23251d;`。
+
+**固定关注语**：正文出现“学习 AI 底层能力和实操干货”时，默认 renderer 自动使用 `color:#DC2626;font-weight:800;`。`AI` 前后的空格可有可无；该规则是账号级固定 CTA，不要求源文额外添加 Markdown 标记。
+
+**章节扫读锚点**：skill 编排层必须保证首个 `##` 前的序言和每个 `##` 一级章节至少有 1 个原文关键短语;每个不少于 120 个可见字符的长普通正文仍必须各自标出 1 个、复杂段落最多 2 个。60-119 字普通段落可承载章节级锚点。默认 renderer 在启用覆盖率门禁后校验章节覆盖、长段漏标、长度、数量、全文密度和嵌套边界,再确定性映射为固定红 `#DC2626` 加粗。
 
 ---
 
@@ -121,11 +126,19 @@
 ```html
 <section style="margin-top:56px;margin-bottom:20px;">
   <section style="font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',-apple-system,BlinkMacSystemFont,sans-serif;text-align:left;">
-    <p style="margin:0 0 10px;font-family:'Helvetica Neue',Arial,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',-apple-system,BlinkMacSystemFont,sans-serif;font-size:54px;font-weight:900;color:#23251d;line-height:0.95;letter-spacing:0.5px;"><span leaf="">{{编号}}</span></p>
-    <p style="margin:0;font-size:22px;font-weight:800;color:#23251d;line-height:1.35;letter-spacing:0;text-align:left;"><span leaf="">{{标题}}</span></p>
+    <p style="margin:0 0 10px;font-family:'Helvetica Neue',Arial,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',-apple-system,BlinkMacSystemFont,sans-serif;font-size:54px;font-weight:900;color:#23251d;line-height:0.95;letter-spacing:0.5px;">
+      <span leaf="" style="display:block;font-family:'Helvetica Neue',Arial,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',-apple-system,BlinkMacSystemFont,sans-serif;font-size:54px;font-weight:900;color:#23251d;line-height:0.95;letter-spacing:0.5px;">{{编号}}</span>
+    </p>
+    <p style="margin:0;font-size:23px;font-weight:900;color:#23251d;line-height:1.35;letter-spacing:0;text-align:left;">
+      <span leaf="" style="display:block;font-size:23px;font-weight:900;color:#23251d;line-height:1.35;letter-spacing:0;text-align:left;">{{标题}}</span>
+    </p>
   </section>
 </section>
 ```
+
+编号和标题的关键排版必须直接写在 `span[leaf]` 上，不能只依赖父元素继承。微信公众号草稿编辑器可能给叶子 span 注入默认正文样式；只写父级会出现“本地预览字号正常、同步草稿后编号缩小”的差异。
+
+编号行和标题行的块级容器必须用 `<p>` 而不是 `<section>`，且父级 `<p>` 要重复 leaf span 上的完整字体样式（双保险）：微信草稿编辑器会重建 `<section>` 包裹链并重写叶子样式（曾导致同步草稿后序号字变小），而 `<p>` 的样式继承在草稿编辑器中已验证可靠（正文段落 `<p style> + span[leaf]` 的写法在草稿里一直显示正常）。
 
 ---
 
@@ -308,7 +321,7 @@
 </section>
 ```
 
-### 文字强调（5 种子样式，正文段落内使用，一段不叠加超过 2 种）
+### 文字强调（7 种子样式，正文段落内使用，一段不叠加超过 2 种）
 
 **a. 强调加粗** —— 重要术语/产品名
 
@@ -339,6 +352,20 @@
 ```html
 <span style="color:#9ea096;text-decoration:line-through;"><span leaf="">{{旧文字}}</span></span>
 ```
+
+**f. 固定关注语红色加粗** —— 账号级固定 CTA，仅用于“学习 AI 底层能力和实操干货”
+
+```html
+<strong style="color:#DC2626;font-weight:800;"><span leaf="">学习 AI 底层能力和实操干货</span></strong>
+```
+
+**g. 长段落语义锚点** —— 仅消费 shared contract 的显式中间标记
+
+```html
+<strong style="color:#DC2626;font-weight:800;"><span leaf="">{{原文关键短语}}</span></strong>
+```
+
+它与 f 使用同一微信兼容 HTML,但来源不同:f 是账号固定短语自动规则,g 必须来自长普通正文的显式语义标记。不得与 a-e 任一范围嵌套。
 
 ---
 
@@ -401,7 +428,9 @@
 
 ## 组件 14 轻量引言 intro-quote
 
-**用途**：文章开头 `>` 引言或轻量旁白。只用浅灰底 + 小字建立引言层级,不做深色标题条、封面卡或装饰性引号。
+**用途**：文章开头 `>` 引言或轻量旁白。固定使用浅灰底 `#f1f2ee` + 13px 灰字 `#6b7067`，默认常规字重、无左侧色条；不使用正文观点卡的注释框，也不省略灰底。作者显式修改的颜色和字重仍按人工修订合同保留。
+
+前置音频播放器、MP3 占位不计作正文；其后的开篇引用仍用本组件。首个一级章节前的 `article-hook` 引言标记也映射到本组件，不因前面出现音频或说明而降为正文引用。
 
 **换行契约**：
 
@@ -414,7 +443,7 @@
 ```html
 <section style="margin-top:4px;margin-bottom:24px;padding:0 8px;">
   <section style="background:#f1f2ee;border-radius:8px;padding:14px 16px;font-family:'IBM Plex Sans',-apple-system,sans-serif;">
-    <p style="margin:0;font-size:13px;line-height:1.75;color:#6b7067;text-align:justify;"><span leaf="">{{引言第一行}}</span><br><span leaf="">{{引言第二行（可选）}}</span></p>
+    <p style="margin:0;font-size:13px;line-height:1.75;color:#6b7067;font-weight:400;text-align:justify;"><span leaf="">{{引言第一行}}</span><br><span leaf="">{{引言第二行（可选）}}</span></p>
   </section>
 </section>
 ```
@@ -917,6 +946,39 @@
 
 ---
 
+## 组件 36 固定作者页尾 author-footer
+
+**用途**：公众号正文结束后的固定作者介绍与两条联系动作。正文使用专属注释标记承载一整段作者文案，renderer 确定性生成居中的 `END` 分隔线、浅灰简介、进阶地图动作和“联系我”动作；不与文章结论、评论引导或作者署名胶囊混用。
+
+**Markdown 输入契约**：
+
+```md
+<!-- gzh-author-footer:start -->
+艾笑：{{一整段作者介绍}}
+<!-- gzh-author-footer:end -->
+```
+
+开始、结束标记全文各只能出现一次；标记内部必须恰好一个自然段，并以 `艾笑：` 开头。`END` 和两条固定动作只由 renderer 生成，不写入 Markdown 源文。`END` 两侧使用真实细线字符 `────────`，禁止使用可能被公众号粘贴清洗删除的空装饰节点。页尾外层不得增加横向 margin；简介和动作统一用 `padding:0 8px`，与普通正文段落的文字基线对齐。简介以“让 AI 好好干活，让我们好好生活。”结束，不再追加“一起吧。”；品牌承诺使用 `#c7254e` 红色底、白色粗体和 `1px 4px` 内边距。进阶地图使用已核验的公众号文章主链接，显示为红色粗体并增加 1px 红色下划线。
+
+```html
+<section style="margin:42px 0 0;">
+  <section style="display:flex;align-items:center;justify-content:center;gap:12px;margin:0 0 18px;">
+    <span style="display:inline-block;font-family:Arial,sans-serif;font-size:12px;line-height:1;color:#dedede;letter-spacing:-1px;white-space:nowrap;"><span leaf="">────────</span></span>
+    <span style="font-size:11px;line-height:1;color:#b2b2b2;letter-spacing:3px;"><span leaf="">END</span></span>
+    <span style="display:inline-block;font-family:Arial,sans-serif;font-size:12px;line-height:1;color:#dedede;letter-spacing:-1px;white-space:nowrap;"><span leaf="">────────</span></span>
+  </section>
+  <section style="padding:0 8px;">
+    <p style="margin:0;font-size:13px;line-height:1.9;color:#8c8c8c;text-align:justify;"><span leaf="">艾笑：{{作者介绍前半段}}</span><strong style="background:#c7254e;color:#ffffff;font-weight:700;padding:1px 4px;"><span leaf="">让 AI 好好干活，让我们好好生活。</span></strong></p>
+    <section style="margin:20px 0 0;">
+      <p style="margin:0 0 6px;font-size:13px;line-height:1.8;color:#8c8c8c;"><span leaf="">点击查看： </span><a href="https://mp.weixin.qq.com/s?__biz=MzkxMTc0MjQ2MA%3D%3D&amp;mid=2247484737&amp;idx=1&amp;sn=8b1ea66df383ce5da4952f906e3ae120" style="color:#c7254e;font-weight:700;text-decoration:none;border-bottom:1px solid #c7254e;"><span leaf="">成为 AI Native 的进阶地图</span></a></p>
+      <p style="margin:0;font-size:13px;line-height:1.8;color:#8c8c8c;"><span leaf="">私信发送： </span><strong style="color:#c7254e;font-weight:700;"><span leaf="">公众号主页私信“联系我”</span></strong><span leaf="">，更多资料、深度链接交流、一起玩。</span></p>
+    </section>
+  </section>
+</section>
+```
+
+---
+
 ## 多行代码块 → 用通用增量库
 
 本主题不设专属多行代码块组件；Markdown 的三反引号围栏代码块直接用 `themes/_shared/common-components.md` 的 1a 深色代码块（默认）或 1b 浅色代码块，左竖条/强调色换成本主题墨色 `#1e1f23`；行内代码用本主题"文字强调 d"或组件 11。
@@ -945,11 +1007,11 @@
 
   <!-- 6. 常见问题（组件25 faq-listing，可选） -->
 
-  <!-- 7. 固定签名段落（组件10 正文段落，SKILL.md 固定文案第一段，ending-actions 之前） -->
+  <!-- 7. 作者签名条（组件33 author-signature，可选，仅用于正文内署名） -->
 
-  <!-- 8. 作者签名条（组件33 author-signature，可选） -->
+  <!-- 8. 结尾行动区（组件28 ending-actions，可选，按原文互动内容渲染） -->
 
-  <!-- 9. 结尾行动区（组件28 ending-actions，{{文末互动引导}} 用 SKILL.md 固定文案第二段） -->
+  <!-- 9. 固定作者页尾（组件36 author-footer，仅源文出现专属标记时生成） -->
 
 </section>
 
@@ -971,7 +1033,7 @@
 | 层级 | 样式 | 用途 | 频率 |
 |------|------|------|------|
 | **锚点层** | 暗色摘要边框 31、暗色标题条 5、头图卡 2 深色摘要条 | 全文最强收束、专题开篇 | 全文 ≤3 处 |
-| **标记层** | 浅底高亮框（文字强调 b）、显式下划线（文字强调 c） | 高亮原文已有强调;下划线只保留源文显式语义 | 按源文出现 |
+| **标记层** | 长段落红色加粗语义锚点 g、浅底高亮框 b、显式下划线 c | 长段落扫读锚点;其它样式只保留源文显式语义 | 每个长段 1 个、复杂段落最多 2 个;全文占比 ≤8% |
 | **容器层** | 重点观点卡 15、条目列表卡 24、编号问题清单 35、轻量引言 14、各类分节条 4/6/9 | 小结、清单、连续追问、过渡 | 按需 |
 
 ---
@@ -990,7 +1052,7 @@
 | 生活/情感随笔 | 头图卡2 + 内刊标签条4 + 正文段落10 + 重点观点卡15 | 摘要横幅条32 |
 | 案例实战 | 头图卡2 + 章节标题3 + 案例时间线26 + 对比摘要卡21 + 结尾内容块34 | 信任墙27、重点观点卡15 |
 
-所有类型共用固定结构：头图卡2 + 固定签名段落(组件10) + 结尾行动区28 + 隐藏标记。
+所有类型共用基础结构：头图卡2 + 正文内容 + 隐藏标记。组件28仅按原文已有互动内容使用；组件36仅在源文带固定作者页尾标记时追加。
 
 ---
 
@@ -999,14 +1061,16 @@
 | Markdown 元素 | 对应组件 | 说明 |
 |---|---|---|
 | `# 标题` | 头图卡2 主标题/强调词 | 平台标题另设，头图卡标题从中提炼 |
-| 文章开头 `> 引言` | 组件14 轻量引言 | 浅灰底、小字、无装饰引号;多行只保留单次换行,空白引用行折叠 |
+| 文章开头 `> 引言`（包括前置音频后的引言及开篇 `article-hook`） | 组件14 轻量引言 | 浅灰底、13px 灰字、常规字重、无左侧色条和装饰引号；多行只保留单次换行，空白引用行折叠 |
 | `## 章节标题` | 组件3 section-title（默认）/ 组件6 期号徽章条（专题式，可选变体） | 编号 01/02/03… |
 | `### 子标题` | 组件7 步骤内联标题（教程步骤）/ 组件9 前导词标题（系列分节）/ 组件8 强调标题（观点强调） | 按语境三选一 |
 | `第一，...？` / `第二，...。` / `第一层是...。` | 组件9A 章节内轻量小标题 | 源文未写 `###` 但语义是章节内二级标题时自动加粗成 H4 |
 | 连续 2 条以上 `比如...` / `例如...` / 短动作句 | 组件9B 非数字序列 | 举例和动作步骤成组出现时才属于序列语义;单个解释句仍用普通段落 |
 | 连续 2 条以上短问句 | 组件35 编号问题清单 | 连续追问属于问题清单语义,每组内部从 `01` 重新编号;单个问句仍用普通段落 |
-| 普通段落 | 组件10 正文段落 | 不主动加关键词下划线 |
+| 普通段落 | 组件10 正文段落 | 序言/一级章节至少 1 个锚点;≥120 字长段必须 1-2 个;60-119 字段落可承载章节级锚点 |
+| `<mark data-gzh="semantic-anchor">原文短语</mark>` | 文字强调 g 固定红色加粗 | renderer 确定性映射;只允许不少于 60 字的普通正文,不得嵌套 |
 | `**加粗文字**` | 文字强调 a 强调加粗 | |
+| `学习 AI 底层能力和实操干货` | 文字强调 f 固定关注语红色加粗 | 自动识别，`AI` 前后的空格可有可无 |
 | `==高亮文字==` | 文字强调 b 浅底高亮框 | |
 | `<u>下划线</u>` / `++文字++` | 文字强调 c 橙色下划线 | 只保留源文显式下划线语义 |
 | `~~删除文字~~` | 文字强调 e 删除线旧词 | 常与新表述搭配用组件12 |
@@ -1021,4 +1085,4 @@
 | 案例/示例展开 | 组件26 案例时间线 | |
 | 常见问题 | 组件25 常见问题列表 | |
 | 文末总结/结语 | 组件34 结尾内容块 / 组件31 暗色摘要边框 / 组件30 暗色摘要分栏 / 组件32 摘要横幅条 | 四选一，按篇幅和语气选 |
-| 文末 | 组件28 ending-actions（+ 固定签名段落） | 固定签名段落放 ending-actions 前 |
+| `<!-- gzh-author-footer:start -->` 包围的一整段 `艾笑：...` | 组件36 固定作者页尾 | 全文最多1个；renderer生成 END 与两条固定动作；页尾文字和正文同为 8px 内容基线 |
